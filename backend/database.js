@@ -1,30 +1,93 @@
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
-
-const dbPath = process.env.DB_PATH ? path.resolve(__dirname, process.env.DB_PATH) : path.join(__dirname, 'mutual_aid.db');
-
-// Ensure database directory exists
-const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
 
 let dbReadyResolve;
 const dbReady = new Promise((resolve) => {
   dbReadyResolve = resolve;
 });
 
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error opening SQLite database:', err.message);
-  } else {
-    console.log('Connected to SQLite database at:', dbPath);
-    initializeSchema();
-  }
-});
+const isPG = !!process.env.DATABASE_URL;
+let db = null;
+let pgPool = null;
 
-function initializeSchema() {
+// Convert SQLite query placeholders (?) to PG placeholders ($1, $2...)
+function convertQuery(sql) {
+  let index = 1;
+  return sql.replace(/\?/g, () => `$${index++}`);
+}
+
+const dbQuery = {
+  run(sql, params = []) {
+    if (isPG) {
+      const pgSql = convertQuery(sql);
+      return pgPool.query(pgSql, params).then(res => ({ lastID: null, changes: res.rowCount }));
+    } else {
+      return new Promise((resolve, reject) => {
+        db.run(sql, params, function (err) {
+          if (err) reject(err);
+          else resolve({ lastID: this.lastID, changes: this.changes });
+        });
+      });
+    }
+  },
+  get(sql, params = []) {
+    if (isPG) {
+      const pgSql = convertQuery(sql);
+      return pgPool.query(pgSql, params).then(res => res.rows[0] || null);
+    } else {
+      return new Promise((resolve, reject) => {
+        db.get(sql, params, (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+    }
+  },
+  all(sql, params = []) {
+    if (isPG) {
+      const pgSql = convertQuery(sql);
+      return pgPool.query(pgSql, params).then(res => res.rows);
+    } else {
+      return new Promise((resolve, reject) => {
+        db.all(sql, params, (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        });
+      });
+    }
+  }
+};
+
+// Database Initialization
+if (isPG) {
+  const { Pool } = require('pg');
+  pgPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false } // Required for cloud databases (Neon/Supabase)
+  });
+  console.log('Connected to PostgreSQL database.');
+  initializeSchemaPG();
+} else {
+  const sqlite3 = require('sqlite3').verbose();
+  const dbPath = process.env.DB_PATH ? path.resolve(__dirname, process.env.DB_PATH) : path.join(__dirname, 'mutual_aid.db');
+  
+  // Ensure database directory exists
+  const dbDir = path.dirname(dbPath);
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+
+  db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+      console.error('Error opening SQLite database:', err.message);
+    } else {
+      console.log('Connected to SQLite database at:', dbPath);
+      initializeSchemaSQLite();
+    }
+  });
+}
+
+function initializeSchemaSQLite() {
   db.serialize(() => {
     // Needs Table
     db.run(`
@@ -98,39 +161,87 @@ function initializeSchema() {
         created_at TEXT NOT NULL
       )
     `, () => {
-      console.log('Database tables initialized successfully.');
+      console.log('SQLite Database tables initialized successfully.');
       dbReadyResolve();
     });
   });
 }
 
-// Wrap db operations in promises
-const dbQuery = {
-  run(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      db.run(sql, params, function (err) {
-        if (err) reject(err);
-        else resolve({ lastID: this.lastID, changes: this.changes });
-      });
-    });
-  },
-  get(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      db.get(sql, params, (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
-  },
-  all(sql, params = []) {
-    return new Promise((resolve, reject) => {
-      db.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
+async function initializeSchemaPG() {
+  try {
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS needs (
+        need_id TEXT PRIMARY KEY,
+        category TEXT CHECK(category IN ('Food', 'Water', 'Medical', 'Shelter', 'Other')),
+        urgency TEXT CHECK(urgency IN ('Normal', 'Urgent', 'Emergency')),
+        description TEXT NOT NULL,
+        photo_before TEXT,
+        zone TEXT NOT NULL,
+        exact_location TEXT NOT NULL,
+        phone_verified INTEGER DEFAULT 0,
+        email_verified INTEGER DEFAULT 0,
+        contact_channel TEXT,
+        report_count INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'Open' CHECK(status IN ('Open', 'Accepted', 'Resolved', 'Hidden')),
+        accepted_by TEXT,
+        photo_after TEXT,
+        posted_at TEXT NOT NULL,
+        accepted_at TEXT,
+        resolved_at TEXT,
+        user_hash TEXT NOT NULL,
+        ip_address TEXT
+      )
+    `);
+
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS verifications (
+        verification_id TEXT PRIMARY KEY,
+        user_hash TEXT NOT NULL,
+        type TEXT CHECK(type IN ('phone', 'email', 'coordinator')),
+        masked_identifier TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
+
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS reports (
+        report_id TEXT PRIMARY KEY,
+        need_id TEXT NOT NULL,
+        reporter_hash TEXT NOT NULL,
+        reason TEXT CHECK(reason IN ('Fake', 'Spam', 'Wrong location', 'Inappropriate')),
+        ip_address TEXT,
+        subnet TEXT,
+        created_at TEXT NOT NULL
+      )
+    `);
+
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        session_id TEXT PRIMARY KEY,
+        user_hash TEXT NOT NULL,
+        device_info TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL,
+        last_active_at TEXT NOT NULL
+      )
+    `);
+
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS helpers (
+        helper_hash TEXT PRIMARY KEY,
+        is_medical_verified INTEGER DEFAULT 0,
+        certificate_photo TEXT,
+        approved_by TEXT,
+        created_at TEXT NOT NULL
+      )
+    `);
+
+    console.log('PostgreSQL Database tables initialized successfully.');
+    dbReadyResolve();
+  } catch (err) {
+    console.error('PostgreSQL database initialization failure:', err.message);
   }
-};
+}
 
 // --- DATA PROTECTION & UTILITIES ---
 
@@ -166,10 +277,10 @@ async function checkPostRateLimit(userHash) {
   );
 
   return {
-    hourExceeded: hourCount.count >= 5,
-    dayExceeded: dayCount.count >= 20,
-    hourCount: hourCount.count,
-    dayCount: dayCount.count
+    hourExceeded: (hourCount ? hourCount.count : 0) >= 5,
+    dayExceeded: (dayCount ? dayCount.count : 0) >= 20,
+    hourCount: hourCount ? hourCount.count : 0,
+    dayCount: dayCount ? dayCount.count : 0
   };
 }
 
