@@ -17,7 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { FaceBlurService } from './FaceBlurService';
 
-const BACKEND_URL = 'http://localhost:5000';
+const BACKEND_URL = 'https://cockroach-mutual-aid-backend.onrender.com';
 
 export default function App() {
   // Navigation & Authentication

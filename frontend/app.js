@@ -1356,3 +1356,375 @@ window.approveHelper = async (helperHash) => {
     loadCoordinatorData();
   }
 };
+
+// --- PUBLIC CHAT & DIRECT MESSAGING LOGIC ---
+
+// Extended mockDatabase for Chat & DMs
+mockDatabase.chat = [
+  {
+    chat_id: 'chat_mock_1',
+    user_hash: 'usr_volunteer_1',
+    display_name: 'Priyanshu Cockroach',
+    avatar_icon: '🪳',
+    message: 'Welcome everyone! Stay safe near the relief camps.',
+    linked_need_id: null,
+    created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString()
+  },
+  {
+    chat_id: 'chat_mock_2',
+    user_hash: 'usr_volunteer_2',
+    display_name: 'Coordinator Cockroach',
+    avatar_icon: '🪳',
+    message: 'Water packages available at Tent C. Contact if needed.',
+    linked_need_id: 'mock_need_2',
+    created_at: new Date(Date.now() - 15 * 60 * 1000).toISOString()
+  }
+];
+
+mockDatabase.dms = [];
+
+let chatPollInterval = null;
+
+// Require authentication check
+function requireAuthAction(actionName, callback) {
+  if (!state.sessionId || !state.userHash) {
+    alert(`🔒 Registration Required!\n\nYou must verify/register via phone or email to ${actionName}. Guest mode is read-only.`);
+    showScreen('screen-welcome');
+    return false;
+  }
+  if (callback) callback();
+  return true;
+}
+
+// Navigation to Public Chat
+document.getElementById('nav-public-chat-btn')?.addEventListener('click', () => {
+  showScreen('screen-chat');
+  initChatView();
+});
+
+document.getElementById('btn-back-chat-to-feed')?.addEventListener('click', () => {
+  showScreen('screen-feed');
+  if (chatPollInterval) clearInterval(chatPollInterval);
+});
+
+document.getElementById('btn-back-dm-to-chat')?.addEventListener('click', () => {
+  showScreen('screen-chat');
+});
+
+document.getElementById('btn-guest-register-chat')?.addEventListener('click', () => {
+  showScreen('screen-welcome');
+});
+
+function initChatView() {
+  const guestBanner = document.getElementById('guest-chat-banner');
+  if (!state.sessionId || !state.userHash) {
+    guestBanner?.classList.remove('hidden');
+  } else {
+    guestBanner?.classList.add('hidden');
+  }
+
+  fetchChatMessages();
+  if (chatPollInterval) clearInterval(chatPollInterval);
+  chatPollInterval = setInterval(fetchChatMessages, 4000);
+}
+
+async function fetchChatMessages() {
+  const container = document.getElementById('chat-messages-container');
+  if (!container) return;
+
+  let messages = [];
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/chat/messages`);
+    if (res.ok) {
+      messages = await res.json();
+    } else {
+      messages = mockDatabase.chat;
+    }
+  } catch (e) {
+    messages = mockDatabase.chat;
+  }
+
+  renderChatMessages(messages);
+}
+
+function renderChatMessages(messages) {
+  const container = document.getElementById('chat-messages-container');
+  if (!container) return;
+
+  if (!messages || messages.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>No messages yet. Be the first to talk!</p></div>';
+    return;
+  }
+
+  container.innerHTML = messages.map(msg => {
+    const isOwn = msg.user_hash === state.userHash;
+    const formattedTime = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    let rawName = (msg.display_name || 'Volunteer').trim();
+    if (rawName.endsWith(' Cockroach')) {
+      rawName = rawName.replace(/ Cockroach$/, '');
+    }
+    const displayName = `${rawName} Cockroach`;
+
+    const linkedTag = msg.linked_need_id ? `<a class="linked-need-tag" onclick="viewLinkedNeed('${msg.linked_need_id}')">📍 Linked Need #${msg.linked_need_id.substring(0, 6)}</a>` : '';
+
+    return `
+      <div class="chat-bubble ${isOwn ? 'own-message' : ''}">
+        <div class="chat-avatar-badge" onclick="openUserProfileModal('${msg.user_hash}', '${displayName.replace(/'/g, "\\'")}')" title="Inspect Cockroach Profile">
+          ${msg.avatar_icon || '🪳'}
+        </div>
+        <div class="chat-bubble-content">
+          <div class="chat-author-row">
+            <span class="chat-author-name" onclick="openUserProfileModal('${msg.user_hash}', '${displayName.replace(/'/g, "\\'")}')">${displayName}</span>
+            <span class="chat-time">${formattedTime}</span>
+          </div>
+          <div class="chat-message-body">${escapeHTML(msg.message)}</div>
+          ${linkedTag}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.scrollTop = container.scrollHeight;
+}
+
+document.getElementById('btn-send-chat')?.addEventListener('click', () => {
+  sendChatMessage();
+});
+
+document.getElementById('chat-input-message')?.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') sendChatMessage();
+});
+
+async function sendChatMessage() {
+  if (!requireAuthAction('post chat messages')) return;
+
+  const input = document.getElementById('chat-input-message');
+  const messageText = input.value.trim();
+  if (!messageText) return;
+
+  let rawName = (localStorage.getItem('mab_user_identifier') || 'Volunteer').split('@')[0];
+  rawName = rawName.replace(/ Cockroach$/, '');
+  const displayName = `${rawName} Cockroach`;
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/chat/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.sessionId}`
+      },
+      body: JSON.stringify({
+        message: messageText,
+        display_name: displayName
+      })
+    });
+
+    if (res.ok) {
+      input.value = '';
+      fetchChatMessages();
+    } else {
+      throw new Error('Failed to send chat');
+    }
+  } catch (e) {
+    const newChat = {
+      chat_id: 'chat_' + Math.random().toString(36).substring(2, 9),
+      user_hash: state.userHash,
+      display_name: displayName,
+      avatar_icon: '🪳',
+      message: messageText,
+      linked_need_id: null,
+      created_at: new Date().toISOString()
+    };
+    mockDatabase.chat.push(newChat);
+    input.value = '';
+    renderChatMessages(mockDatabase.chat);
+  }
+}
+
+window.openUserProfileModal = async (targetHash, targetDisplayName) => {
+  const modal = document.getElementById('user-profile-modal');
+  const nameEl = document.getElementById('profile-display-name');
+  const hashEl = document.getElementById('profile-user-hash');
+
+  let rawName = (targetDisplayName || 'Volunteer').trim();
+  if (rawName.endsWith(' Cockroach')) {
+    rawName = rawName.replace(/ Cockroach$/, '');
+  }
+  const formattedName = `${rawName} Cockroach`;
+
+  nameEl.innerText = formattedName;
+  hashEl.innerText = targetHash ? `${targetHash.substring(0, 14)}...` : 'usr_anon';
+  
+  modal.classList.remove('hidden');
+
+  const btnStartDm = document.getElementById('btn-start-dm-profile');
+  if (btnStartDm) {
+    btnStartDm.onclick = () => {
+      closeUserProfileModal();
+      openDirectMessageScreen(targetHash, formattedName);
+    };
+  }
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/user/${targetHash}`);
+    if (res.ok) {
+      const data = await res.json();
+      renderProfileNeeds(data.needsCreated);
+    } else {
+      renderProfileNeeds(mockDatabase.needs.filter(n => n.user_hash === targetHash));
+    }
+  } catch (e) {
+    renderProfileNeeds(mockDatabase.needs.filter(n => n.user_hash === targetHash));
+  }
+};
+
+function renderProfileNeeds(needs) {
+  const needsListEl = document.getElementById('profile-needs-list');
+  if (!needs || needs.length === 0) {
+    needsListEl.innerHTML = '<p class="empty-text">No active requests posted.</p>';
+    return;
+  }
+  needsListEl.innerHTML = needs.map(n => `
+    <div class="profile-need-item" onclick="closeUserProfileModal(); viewLinkedNeed('${n.need_id}')">
+      📍 [${n.urgency}] ${n.category}: ${escapeHTML(n.description.substring(0, 45))}...
+    </div>
+  `).join('');
+}
+
+window.closeUserProfileModal = () => {
+  document.getElementById('user-profile-modal')?.classList.add('hidden');
+};
+
+document.getElementById('btn-close-profile-modal')?.addEventListener('click', closeUserProfileModal);
+
+let currentDmTargetHash = null;
+let currentDmTargetName = null;
+
+function openDirectMessageScreen(targetHash, targetName) {
+  if (!requireAuthAction('send direct private messages')) return;
+
+  currentDmTargetHash = targetHash;
+  currentDmTargetName = targetName;
+
+  document.getElementById('dm-recipient-title').innerText = `💬 1-on-1 with ${targetName}`;
+  showScreen('screen-dm');
+  fetchDirectMessages();
+}
+
+async function fetchDirectMessages() {
+  if (!currentDmTargetHash) return;
+
+  let dms = [];
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/dm/messages/${currentDmTargetHash}`, {
+      headers: { 'Authorization': `Bearer ${state.sessionId}` }
+    });
+    if (res.ok) {
+      dms = await res.json();
+    } else {
+      dms = mockDatabase.dms.filter(d => 
+        (d.sender_hash === state.userHash && d.receiver_hash === currentDmTargetHash) ||
+        (d.sender_hash === currentDmTargetHash && d.receiver_hash === state.userHash)
+      );
+    }
+  } catch (e) {
+    dms = mockDatabase.dms.filter(d => 
+      (d.sender_hash === state.userHash && d.receiver_hash === currentDmTargetHash) ||
+      (d.sender_hash === currentDmTargetHash && d.receiver_hash === state.userHash)
+    );
+  }
+
+  renderDirectMessages(dms);
+}
+
+function renderDirectMessages(dms) {
+  const container = document.getElementById('dm-messages-container');
+  if (!container) return;
+
+  if (!dms || dms.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>No private messages yet. Send a message to start conversing!</p></div>';
+    return;
+  }
+
+  container.innerHTML = dms.map(d => {
+    const isOwn = d.sender_hash === state.userHash;
+    const formattedTime = new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `
+      <div class="chat-bubble ${isOwn ? 'own-message' : ''}">
+        <div class="chat-avatar-badge">🪳</div>
+        <div class="chat-bubble-content">
+          <div class="chat-author-row">
+            <span class="chat-author-name">${d.sender_name || 'Cockroach'}</span>
+            <span class="chat-time">${formattedTime}</span>
+          </div>
+          <div class="chat-message-body">${escapeHTML(d.message)}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.scrollTop = container.scrollHeight;
+}
+
+document.getElementById('btn-send-dm')?.addEventListener('click', sendDirectMessage);
+document.getElementById('dm-input-message')?.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') sendDirectMessage();
+});
+
+async function sendDirectMessage() {
+  if (!requireAuthAction('send direct private messages')) return;
+  const input = document.getElementById('dm-input-message');
+  const text = input.value.trim();
+  if (!text || !currentDmTargetHash) return;
+
+  let rawName = (localStorage.getItem('mab_user_identifier') || 'Volunteer').split('@')[0];
+  rawName = rawName.replace(/ Cockroach$/, '');
+  const senderName = `${rawName} Cockroach`;
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/dm/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.sessionId}`
+      },
+      body: JSON.stringify({
+        receiver_hash: currentDmTargetHash,
+        message: text,
+        sender_name: senderName
+      })
+    });
+
+    if (res.ok) {
+      input.value = '';
+      fetchDirectMessages();
+    } else {
+      throw new Error('Failed to send DM');
+    }
+  } catch (e) {
+    const newDm = {
+      dm_id: 'dm_' + Math.random().toString(36).substring(2, 9),
+      sender_hash: state.userHash,
+      receiver_hash: currentDmTargetHash,
+      sender_name: senderName,
+      message: text,
+      created_at: new Date().toISOString()
+    };
+    mockDatabase.dms.push(newDm);
+    input.value = '';
+    renderDirectMessages(mockDatabase.dms.filter(d => 
+      (d.sender_hash === state.userHash && d.receiver_hash === currentDmTargetHash) ||
+      (d.sender_hash === currentDmTargetHash && d.receiver_hash === state.userHash)
+    ));
+  }
+}
+
+window.viewLinkedNeed = (needId) => {
+  const need = state.needs.find(n => n.need_id === needId) || mockDatabase.needs.find(n => n.need_id === needId);
+  if (need) {
+    showNeedDetailsModal(need);
+  } else {
+    alert(`Need #${needId} could not be located.`);
+  }
+};

@@ -177,7 +177,8 @@
             <!-- Bottom tab navigation -->
             <div class="mobile-bottom-nav">
               <button class="nav-item active" id="nav-board-feed">📋 Board</button>
-              <button class="nav-item" id="nav-medical-verify">🩺 Register Medical</button>
+              <button class="nav-item" id="nav-public-chat-btn">💬 Chat</button>
+              <button class="nav-item" id="nav-medical-verify">🩺 Medical</button>
             </div>
           </div>
 
@@ -405,9 +406,82 @@
             </div>
           </div>
 
+          <!-- SCREEN 6: PUBLIC CHAT ROOM -->
+          <div class="mobile-screen" id="screen-chat">
+            <div class="screen-back-header">
+              <button class="back-btn" id="btn-back-chat-to-feed">← Board</button>
+              <h3>💬 Public Chat Room</h3>
+            </div>
+
+            <!-- Guest notice if unverified -->
+            <div class="guest-chat-banner hidden" id="guest-chat-banner">
+              🔒 <span><strong>Guest Mode</strong>: You can read messages. Register to chat or send DMs.</span>
+              <button class="btn btn-xs btn-primary" id="btn-guest-register-chat">Register Now</button>
+            </div>
+
+            <!-- Messages Stream -->
+            <div class="chat-messages-container" id="chat-messages-container">
+              <div class="empty-state">
+                <p>Loading messages...</p>
+              </div>
+            </div>
+
+            <!-- Message Input Area -->
+            <div class="chat-input-area">
+              <input type="text" id="chat-input-message" placeholder="Type message... (Auto-appends Cockroach)">
+              <button class="btn btn-primary btn-sm" id="btn-send-chat">Send</button>
+            </div>
+          </div>
+
+          <!-- SCREEN 7: 1-ON-1 DIRECT MESSAGE (DM) -->
+          <div class="mobile-screen" id="screen-dm">
+            <div class="screen-back-header">
+              <button class="back-btn" id="btn-back-dm-to-chat">← Chat</button>
+              <h3 id="dm-recipient-title">Direct Message</h3>
+            </div>
+
+            <div class="dm-messages-container" id="dm-messages-container">
+              <div class="empty-state">
+                <p>No messages yet. Say hello!</p>
+              </div>
+            </div>
+
+            <div class="chat-input-area">
+              <input type="text" id="dm-input-message" placeholder="Type a private 1-on-1 message...">
+              <button class="btn btn-success btn-sm" id="btn-send-dm">Send DM</button>
+            </div>
+          </div>
+
         </div>
       </div>
     </section>
+
+    <!-- User Profile Modal Drawer -->
+    <div class="modal-overlay hidden" id="user-profile-modal">
+      <div class="profile-modal-card">
+        <div class="profile-header">
+          <span class="profile-avatar">🪳</span>
+          <h3 id="profile-display-name">Priyanshu Cockroach</h3>
+          <span class="profile-hash-badge" id="profile-user-hash">usr_...</span>
+        </div>
+
+        <div class="profile-verifications" id="profile-verifications">
+          <span class="badge info">Verified Member</span>
+        </div>
+
+        <div class="profile-needs-block">
+          <h4>Active Requests & Helps</h4>
+          <div id="profile-needs-list" class="profile-needs-list">
+            <p class="empty-text">No active requests posted.</p>
+          </div>
+        </div>
+
+        <div class="profile-actions">
+          <button class="btn btn-primary btn-block" id="btn-start-dm-profile">💬 Send Direct Message</button>
+          <button class="btn btn-secondary btn-block" id="btn-close-profile-modal">Close</button>
+        </div>
+      </div>
+    </div>
 
     <!-- RIGHT SIDE: Coordinator Admin Dashboard -->
     <section class="workspace-section dashboard-section">

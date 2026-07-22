@@ -98,13 +98,13 @@ function initializeSchemaSQLite() {
         description TEXT NOT NULL,
         photo_before TEXT,
         zone TEXT NOT NULL,
-        exact_location TEXT NOT NULL, -- JSON string: {lat, lng}
+        exact_location TEXT NOT NULL,
         phone_verified INTEGER DEFAULT 0,
         email_verified INTEGER DEFAULT 0,
-        contact_channel TEXT, -- JSON string: {type, value}
+        contact_channel TEXT,
         report_count INTEGER DEFAULT 0,
         status TEXT DEFAULT 'Open' CHECK(status IN ('Open', 'Accepted', 'Resolved', 'Hidden')),
-        accepted_by TEXT, -- helper_hash
+        accepted_by TEXT,
         photo_after TEXT,
         posted_at TEXT NOT NULL,
         accepted_at TEXT,
@@ -120,7 +120,7 @@ function initializeSchemaSQLite() {
         verification_id TEXT PRIMARY KEY,
         user_hash TEXT NOT NULL,
         type TEXT CHECK(type IN ('phone', 'email', 'coordinator')),
-        masked_identifier TEXT NOT NULL, -- e.g. +91******1234 or a***@gmail.com
+        masked_identifier TEXT NOT NULL,
         created_at TEXT NOT NULL
       )
     `);
@@ -133,13 +133,13 @@ function initializeSchemaSQLite() {
         reporter_hash TEXT NOT NULL,
         reason TEXT CHECK(reason IN ('Fake', 'Spam', 'Wrong location', 'Inappropriate')),
         ip_address TEXT,
-        subnet TEXT, -- first 3 octets
+        subnet TEXT,
         created_at TEXT NOT NULL,
         FOREIGN KEY (need_id) REFERENCES needs(need_id)
       )
     `);
 
-    // Active Sessions (Allows remote termination and auto-logout tracking)
+    // Active Sessions
     db.run(`
       CREATE TABLE IF NOT EXISTS sessions (
         session_id TEXT PRIMARY KEY,
@@ -151,14 +151,40 @@ function initializeSchemaSQLite() {
       )
     `);
 
-    // Verified Helpers (Medical needs verified helper lookup)
+    // Verified Helpers
     db.run(`
       CREATE TABLE IF NOT EXISTS helpers (
         helper_hash TEXT PRIMARY KEY,
         is_medical_verified INTEGER DEFAULT 0,
         certificate_photo TEXT,
-        approved_by TEXT, -- coordinator user_hash
+        approved_by TEXT,
         created_at TEXT NOT NULL
+      )
+    `);
+
+    // Public Chat Table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS public_chat (
+        chat_id TEXT PRIMARY KEY,
+        user_hash TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        avatar_icon TEXT DEFAULT '🪳',
+        message TEXT NOT NULL,
+        linked_need_id TEXT,
+        created_at TEXT NOT NULL
+      )
+    `);
+
+    // 1-on-1 Direct Messages Table (DM)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS direct_messages (
+        dm_id TEXT PRIMARY KEY,
+        sender_hash TEXT NOT NULL,
+        receiver_hash TEXT NOT NULL,
+        sender_name TEXT NOT NULL,
+        message TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        is_read INTEGER DEFAULT 0
       )
     `, () => {
       console.log('SQLite Database tables initialized successfully.');
@@ -236,6 +262,30 @@ async function initializeSchemaPG() {
       )
     `);
 
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS public_chat (
+        chat_id TEXT PRIMARY KEY,
+        user_hash TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        avatar_icon TEXT DEFAULT '🪳',
+        message TEXT NOT NULL,
+        linked_need_id TEXT,
+        created_at TEXT NOT NULL
+      )
+    `);
+
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS direct_messages (
+        dm_id TEXT PRIMARY KEY,
+        sender_hash TEXT NOT NULL,
+        receiver_hash TEXT NOT NULL,
+        sender_name TEXT NOT NULL,
+        message TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        is_read INTEGER DEFAULT 0
+      )
+    `);
+
     console.log('PostgreSQL Database tables initialized successfully.');
     dbReadyResolve();
   } catch (err) {
@@ -245,7 +295,6 @@ async function initializeSchemaPG() {
 
 // --- DATA PROTECTION & UTILITIES ---
 
-// Purge verification data older than 30 days
 async function purgeExpiredVerifications() {
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   try {
@@ -261,7 +310,6 @@ async function purgeExpiredVerifications() {
   }
 }
 
-// Rate Limiter Check (max 5 posts/hour, 20/day)
 async function checkPostRateLimit(userHash) {
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -284,13 +332,11 @@ async function checkPostRateLimit(userHash) {
   };
 }
 
-// Calculate weighted reports and hide if threshold is met
 async function processReport(needId, reporterHash, reason, ipAddress) {
   const subnet = ipAddress ? ipAddress.split('.').slice(0, 3).join('.') : '';
   const reportId = Math.random().toString(36).substring(2, 15);
   const now = new Date().toISOString();
 
-  // Check if this reporter already flagged this need
   const existing = await dbQuery.get(
     `SELECT report_id FROM reports WHERE need_id = ? AND reporter_hash = ?`,
     [needId, reporterHash]
@@ -299,14 +345,12 @@ async function processReport(needId, reporterHash, reason, ipAddress) {
     throw new Error('You have already reported this post.');
   }
 
-  // Insert report
   await dbQuery.run(
     `INSERT INTO reports (report_id, need_id, reporter_hash, reason, ip_address, subnet, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [reportId, needId, reporterHash, reason, ipAddress, subnet, now]
   );
 
-  // Recalculate weights
   const allReports = await dbQuery.all(
     `SELECT reporter_hash, ip_address, subnet FROM reports WHERE need_id = ?`,
     [needId]

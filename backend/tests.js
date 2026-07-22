@@ -93,6 +93,43 @@ async function runTests() {
     await dbQuery.run(`DELETE FROM needs WHERE need_id = ?`, [needId]);
     await dbQuery.run(`DELETE FROM reports WHERE need_id = ?`, [needId]);
 
+    // TEST 5: Public Chat & Cockroach Name Formatting
+    console.log('\n[TEST 5] Testing Public Chat & Cockroach Name Formatting...');
+    const chatId = 'chat_test_1';
+    const rawName = 'Priyanshu';
+    const formattedName = `${rawName} Cockroach`;
+    
+    await dbQuery.run(
+      `INSERT INTO public_chat (chat_id, user_hash, display_name, avatar_icon, message, created_at)
+       VALUES (?, ?, ?, '🪳', 'Test message on public chat', ?)`,
+      [chatId, 'usr_test_hash', formattedName, new Date().toISOString()]
+    );
+
+    const chatRow = await dbQuery.get(`SELECT * FROM public_chat WHERE chat_id = ?`, [chatId]);
+    if (!chatRow || chatRow.display_name !== 'Priyanshu Cockroach') {
+      throw new Error('Public chat name formatting failed.');
+    }
+    console.log(`✔ Public Chat verified: Author="${chatRow.display_name}", Avatar="${chatRow.avatar_icon}"`);
+
+    // TEST 6: 1-on-1 Direct Messaging (DM)
+    console.log('\n[TEST 6] Testing 1-on-1 Direct Messaging (DM)...');
+    const dmId = 'dm_test_1';
+    await dbQuery.run(
+      `INSERT INTO direct_messages (dm_id, sender_hash, receiver_hash, sender_name, message, created_at)
+       VALUES (?, ?, ?, ?, 'Private 1-on-1 help msg', ?)`,
+      [dmId, 'usr_sender', 'usr_receiver', 'Volunteer Cockroach', new Date().toISOString()]
+    );
+
+    const dmRow = await dbQuery.get(`SELECT * FROM direct_messages WHERE dm_id = ?`, [dmId]);
+    if (!dmRow || dmRow.sender_name !== 'Volunteer Cockroach') {
+      throw new Error('Direct message storage failed.');
+    }
+    console.log(`✔ 1-on-1 Direct Message verified: Sender="${dmRow.sender_name}", Receiver="${dmRow.receiver_hash}"`);
+
+    // Clean up test chat data
+    await dbQuery.run(`DELETE FROM public_chat WHERE chat_id = ?`, [chatId]);
+    await dbQuery.run(`DELETE FROM direct_messages WHERE dm_id = ?`, [dmId]);
+
     console.log('\n--- ALL VERIFICATION TESTS COMPLETED SUCCESSFULLY ---');
   } catch (err) {
     console.error('\n✖ SYSTEM VERIFICATION FAILED:', err.message);

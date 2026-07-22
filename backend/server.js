@@ -593,6 +593,145 @@ app.post('/api/coordinator/moderate-post', async (req, res) => {
   }
 });
 
+// --- PUBLIC CHAT & DIRECT MESSAGING ENDPOINTS ---
+
+// 1. Fetch Public Chat Messages (Unrestricted read for guests)
+app.get('/api/chat/messages', async (req, res) => {
+  try {
+    const messages = await dbQuery.all(
+      `SELECT * FROM public_chat ORDER BY created_at ASC LIMIT 50`
+    );
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch public chat messages.' });
+  }
+});
+
+// 2. Send Public Chat Message (Auth required, appends ' Cockroach')
+app.post('/api/chat/send', authenticate, async (req, res) => {
+  const { message, display_name, linked_need_id } = req.body;
+  if (!message) {
+    return res.status(400).json({ error: 'Message text is required.' });
+  }
+
+  let rawName = (display_name || 'Volunteer').trim();
+  if (rawName.endsWith(' Cockroach')) {
+    rawName = rawName.replace(/ Cockroach$/, '');
+  }
+  const formattedName = `${rawName} Cockroach`;
+
+  const chatId = 'chat_' + generateId();
+  const now = new Date().toISOString();
+
+  try {
+    await dbQuery.run(
+      `INSERT INTO public_chat (chat_id, user_hash, display_name, avatar_icon, message, linked_need_id, created_at)
+       VALUES (?, ?, ?, '🪳', ?, ?, ?)`,
+      [chatId, req.userHash, formattedName, message, linked_need_id || null, now]
+    );
+
+    res.status(201).json({
+      message: 'Chat message posted successfully.',
+      chat: {
+        chat_id: chatId,
+        user_hash: req.userHash,
+        display_name: formattedName,
+        avatar_icon: '🪳',
+        message,
+        linked_need_id: linked_need_id || null,
+        created_at: now
+      }
+    });
+  } catch (err) {
+    console.error('Chat send error:', err);
+    res.status(500).json({ error: 'Failed to post chat message.' });
+  }
+});
+
+// 3. Send Direct Private Message 1-on-1 (Auth required)
+app.post('/api/dm/send', authenticate, async (req, res) => {
+  const { receiver_hash, message, sender_name } = req.body;
+  if (!receiver_hash || !message) {
+    return res.status(400).json({ error: 'Target user hash and message text are required.' });
+  }
+
+  let rawName = (sender_name || 'Volunteer').trim();
+  if (rawName.endsWith(' Cockroach')) {
+    rawName = rawName.replace(/ Cockroach$/, '');
+  }
+  const formattedName = `${rawName} Cockroach`;
+
+  const dmId = 'dm_' + generateId();
+  const now = new Date().toISOString();
+
+  try {
+    await dbQuery.run(
+      `INSERT INTO direct_messages (dm_id, sender_hash, receiver_hash, sender_name, message, created_at, is_read)
+       VALUES (?, ?, ?, ?, ?, ?, 0)`,
+      [dmId, req.userHash, receiver_hash, formattedName, message, now]
+    );
+
+    res.status(201).json({
+      message: 'Direct message sent.',
+      dm: {
+        dm_id: dmId,
+        sender_hash: req.userHash,
+        receiver_hash,
+        sender_name: formattedName,
+        message,
+        created_at: now
+      }
+    });
+  } catch (err) {
+    console.error('DM error:', err);
+    res.status(500).json({ error: 'Failed to send direct message.' });
+  }
+});
+
+// 4. Fetch Direct Private Messages with a specific user (Auth required)
+app.get('/api/dm/messages/:targetHash', authenticate, async (req, res) => {
+  const targetHash = req.params.targetHash;
+  try {
+    const messages = await dbQuery.all(
+      `SELECT * FROM direct_messages 
+       WHERE (sender_hash = ? AND receiver_hash = ?) OR (sender_hash = ? AND receiver_hash = ?)
+       ORDER BY created_at ASC`,
+      [req.userHash, targetHash, targetHash, req.userHash]
+    );
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch direct messages.' });
+  }
+});
+
+// 5. Get User Profile Summary & Active Needs
+app.get('/api/user/:hash', async (req, res) => {
+  const targetHash = req.params.hash;
+  try {
+    const needsCreated = await dbQuery.all(
+      `SELECT need_id, category, urgency, description, zone, status, posted_at FROM needs WHERE user_hash = ? AND status != 'Hidden'`,
+      [targetHash]
+    );
+    const needsAccepted = await dbQuery.all(
+      `SELECT need_id, category, urgency, description, zone, status, posted_at FROM needs WHERE accepted_by = ? AND status != 'Hidden'`,
+      [targetHash]
+    );
+    const helper = await dbQuery.get(
+      `SELECT is_medical_verified FROM helpers WHERE helper_hash = ?`,
+      [targetHash]
+    );
+
+    res.json({
+      userHash: targetHash,
+      isMedicalVerified: helper ? helper.is_medical_verified === 1 : false,
+      needsCreated,
+      needsAccepted
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user profile details.' });
+  }
+});
+
 dbReady.then(() => {
   app.listen(PORT, () => {
     console.log(`Mutual Aid Backend running on port ${PORT}`);
