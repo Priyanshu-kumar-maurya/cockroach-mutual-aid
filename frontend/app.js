@@ -3,7 +3,7 @@
    Fully supports Express+SQLite backend with seamless mock client-side fallback
    ========================================================================== */
 
-const BACKEND_URL = 'http://localhost:5000';
+const BACKEND_URL = 'https://cockroach-mutual-aid-backend.onrender.com';
 
 // Global Application State
 let state = {
