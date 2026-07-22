@@ -1261,12 +1261,62 @@ input[type="text"]:focus, select:focus, textarea:focus {
   100% { transform: scale(1.05); opacity: 1; }
 }
 
-/* Responsive Scaling for Dashboard */
+/* Responsive Scaling for Dashboard & Real Mobile Devices */
 @media (max-width: 1000px) {
   .workspace-container {
     grid-template-columns: 1fr;
+    padding: 1rem;
   }
   .smartphone-frame {
     margin: 0 auto;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+  }
+  .main-header {
+    padding: 0.5rem 1rem;
+  }
+  .header-logo h1 {
+    font-size: 1rem;
+  }
+  .logo-tag {
+    display: none;
+  }
+  .workspace-container {
+    grid-template-columns: 1fr;
+    padding: 0;
+    margin: 0;
+    min-height: calc(100vh - 56px);
+  }
+  .workspace-section {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+  }
+  .mobile-section {
+    width: 100vw;
+    height: calc(100vh - 56px);
+  }
+  .section-header {
+    display: none; /* Hide device titles on phone */
+  }
+  .smartphone-frame {
+    width: 100vw;
+    height: 100%;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .screen-status-bar {
+    display: none; /* Hide simulated phone status bar on real mobile screen */
+  }
+  .dashboard-section {
+    display: none; /* Hide coordinator panel on real mobile, can be accessed via laptop */
   }
 }
