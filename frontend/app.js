@@ -1357,6 +1357,20 @@ window.approveHelper = async (helperHash) => {
   }
 };
 
+// HTML Sanitizer Helper
+function escapeHTML(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>'"]/g, 
+    tag => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[tag] || tag)
+  );
+}
+
 // --- PUBLIC CHAT & DIRECT MESSAGING LOGIC ---
 
 // Extended mockDatabase for Chat & DMs
