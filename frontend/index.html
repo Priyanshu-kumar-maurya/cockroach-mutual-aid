@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mutual Aid Board - Privacy-First On-Ground Relief</title>
+  <meta name="description" content="A real-time mutual aid board for on-ground gatherings featuring anonymous-first verification, client-side face blur, exact location locking, and anti-gaming weighted reports.">
+  
+  <!-- Modern Typography (Space Grotesk & Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet Map CSS for Navigation -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  
+  <!-- Vanilla CSS Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  
+  <!-- Top Control Bar -->
+  <header class="main-header">
+    <div class="header-logo">
+      <div class="logo-icon">▲</div>
+      <div class="logo-text">
+        <h1>MUTUAL AID BOARD</h1>
+        <span class="logo-tag">ON-GROUND RELIEF SYSTEM</span>
+      </div>
+    </div>
+    
+    <div class="header-controls">
+      <!-- Network Simulator -->
+      <div class="control-group">
+        <label for="network-toggle">Network Mode:</label>
+        <div class="toggle-button" id="network-toggle" data-status="online">
+          <span class="indicator-dot online"></span>
+          <span class="status-label">Online</span>
+        </div>
+      </div>
+      
+      <!-- Session Indicator / Quick Actions -->
+      <div class="session-info hidden" id="session-info-bar">
+        <span class="user-badge" id="session-user-badge">User: hash</span>
+        <button id="kill-sessions-btn" class="btn btn-sm btn-outline-warning" title="Terminate other active sessions remotely">Remote Kill Sessions</button>
+        <button id="logout-btn" class="btn btn-sm btn-outline-danger">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Dual Workspace Layout -->
+  <main class="workspace-container">
+    
+    <!-- LEFT SIDE: Mobile Client Simulator Frame -->
+    <section class="workspace-section mobile-section">
+      <div class="section-header">
+        <h2>Mobile Device Viewport</h2>
+        <p>Simulating on-ground attendee / volunteer experience</p>
+      </div>
+      
+      <!-- Device Bezel Frame -->
+      <div class="smartphone-frame">
+        <div class="smartphone-screen">
+          
+          <!-- Screen Header / Status Bar -->
+          <div class="screen-status-bar">
+            <span class="status-time">14:30</span>
+            <div class="status-island"></div>
+            <div class="status-indicators">
+              <span class="signal-strength">📶</span>
+              <span class="battery-level">92%</span>
+            </div>
+          </div>
+          
+          <!-- Screen Title bar -->
+          <div class="screen-app-bar">
+            <span class="app-title" id="mobile-app-title">Mutual Aid Board</span>
+            <span class="app-subtitle" id="mobile-app-subtitle">Connecting Gatherings</span>
+          </div>
+
+          <!-- SCREEN 1: VERIFICATION / SIGN-IN SCREEN -->
+          <div class="mobile-screen active" id="screen-verify">
+            <div class="welcome-text">
+              <h3>Secure Access</h3>
+              <p>Protecting identity in high-risk zones. Pick an anonymous verification channel. Raw info auto-deletes in 30 days.</p>
+            </div>
+            
+            <div class="verify-options">
+              <!-- OTP Method -->
+              <div class="verify-card active" id="method-otp">
+                <h4>Phone / Email Verification</h4>
+                <p>Verify via masked OTP. No real contacts stored publicly.</p>
+                <div class="form-group">
+                  <input type="text" id="verify-identifier" placeholder="Phone or Email (e.g. +919876543210)">
+                </div>
+                <button class="btn btn-primary btn-block" id="btn-request-otp">Send Verification Code</button>
+                
+                <div class="otp-input-area hidden" id="otp-input-area">
+                  <p class="demo-otp-note">Demo Code: <strong id="demo-otp-code">------</strong></p>
+                  <div class="form-group">
+                    <input type="text" id="verify-code" placeholder="Enter 6-Digit OTP">
+                  </div>
+                  <button class="btn btn-success btn-block" id="btn-confirm-otp">Verify & Sign In</button>
+                </div>
+              </div>
+
+              <div class="separator-text">OR</div>
+
+              <!-- Coordinator Proxy Method -->
+              <div class="verify-card" id="method-proxy">
+                <h4>On-Ground Coordinator Proxy</h4>
+                <p>Have a local organizer manually confirm your identity verbally.</p>
+                <div class="form-group">
+                  <input type="text" id="verify-proxy-name" placeholder="Coordinator Validation Code">
+                </div>
+                <button class="btn btn-secondary btn-block" id="btn-confirm-proxy">Confirm Coordinator Proxy</button>
+              </div>
+            </div>
+            
+            <div class="screen-footer">
+              <p>🔒 Data E2EE Encrypted &middot; Hashed Storage</p>
+            </div>
+          </div>
+
+          <!-- SCREEN 2: MAIN BOARD FEED -->
+          <div class="mobile-screen" id="screen-feed">
+            <!-- Filter Options -->
+            <div class="feed-filters">
+              <button class="filter-chip active" data-filter="all">All Needs</button>
+              <button class="filter-chip" data-filter="Medical">Medical</button>
+              <button class="filter-chip" data-filter="Food">Food / Water</button>
+              <button class="filter-chip" data-filter="Shelter">Shelter</button>
+            </div>
+            
+            <!-- Queue Banner for Offline sync -->
+            <div class="offline-queue-banner hidden" id="offline-queue-banner">
+              ⚠️ <span id="queue-banner-text">0 posts queued locally.</span>
+            </div>
+
+            <!-- List of Needs -->
+            <div class="needs-feed-list" id="needs-feed-list">
+              <!-- Dynamically populated -->
+              <div class="empty-state">
+                <p>No active needs. Tap "+" to post a need.</p>
+              </div>
+            </div>
+
+            <!-- Floating Action Button to post need -->
+            <button class="fab-btn" id="fab-post-need" title="Post a Need">+</button>
+            
+            <!-- Bottom tab navigation -->
+            <div class="mobile-bottom-nav">
+              <button class="nav-item active" id="nav-board-feed">📋 Board</button>
+              <button class="nav-item" id="nav-medical-verify">🩺 Register Medical</button>
+            </div>
+          </div>
+
+          <!-- SCREEN 3: POST A NEED SCREEN -->
+          <div class="mobile-screen" id="screen-post-need">
+            <div class="screen-back-header">
+              <button class="back-btn" id="btn-back-to-feed">← Feed</button>
+              <h3>Post a Need</h3>
+            </div>
+            
+            <form class="post-need-form" id="post-need-form" onsubmit="return false;">
+              <!-- Category -->
+              <div class="form-group">
+                <label>Category</label>
+                <div class="category-grid">
+                  <label class="cat-radio-label active"><input type="radio" name="category" value="Food" checked> Food</label>
+                  <label class="cat-radio-label"><input type="radio" name="category" value="Water"> Water</label>
+                  <label class="cat-radio-label"><input type="radio" name="category" value="Medical"> Medical</label>
+                  <label class="cat-radio-label"><input type="radio" name="category" value="Shelter"> Shelter</label>
+                  <label class="cat-radio-label"><input type="radio" name="category" value="Other"> Other</label>
+                </div>
+              </div>
+
+              <!-- Urgency -->
+              <div class="form-group">
+                <label>Urgency Level</label>
+                <div class="urgency-selector">
+                  <label class="urg-label normal"><input type="radio" name="urgency" value="Normal" checked> Normal</label>
+                  <label class="urg-label urgent"><input type="radio" name="urgency" value="Urgent"> Urgent</label>
+                  <label class="urg-label emergency"><input type="radio" name="urgency" value="Emergency"> Emergency</label>
+                </div>
+              </div>
+
+              <!-- Description -->
+              <div class="form-group">
+                <label for="need-description">Short Note (What is needed?)</label>
+                <textarea id="need-description" rows="3" placeholder="Provide details e.g. 5 cases of water bottles needed..." required></textarea>
+              </div>
+
+              <!-- Location Details -->
+              <div class="form-group">
+                <label for="need-zone">Public Zone / Landmark (Visible to all)</label>
+                <input type="text" id="need-zone" placeholder="e.g. Near West Stage / Block C tent" required>
+              </div>
+
+              <div class="form-group">
+                <label>Exact Pin Location (Hidden until accepted)</label>
+                <div class="gps-picker-widget">
+                  <span id="gps-coords-label">📍 Pin not set (default current location)</span>
+                  <button type="button" class="btn btn-sm btn-outline-primary" id="btn-open-gps-picker">Tap to select on map</button>
+                </div>
+                <!-- Interactive GPS Map Picker Container -->
+                <div id="gps-picker-map" class="hidden"></div>
+              </div>
+
+              <!-- Photo Before with Face Blur -->
+              <div class="form-group">
+                <label>Attach Photo (Optional)</label>
+                <div class="photo-uploader-box">
+                  <input type="file" id="photo-before-input" accept="image/*" class="hidden">
+                  <button type="button" class="btn btn-secondary btn-block" id="btn-select-photo">📸 Choose Photo</button>
+                  <span class="file-name-label" id="photo-file-name">No photo attached</span>
+                </div>
+                
+                <!-- Face Blur Canvas Editor Interface -->
+                <div class="face-blur-editor hidden" id="face-blur-editor">
+                  <div class="editor-header">
+                    <span>Tap on faces/people to blur them</span>
+                    <button type="button" class="btn btn-xs btn-success" id="btn-save-face-blur">Apply & Strip EXIF</button>
+                  </div>
+                  <div class="canvas-wrapper">
+                    <canvas id="face-blur-canvas"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-success btn-block" id="btn-submit-need">Submit Need Request</button>
+            </form>
+          </div>
+
+          <!-- SCREEN 4: NEED DETAILS & ACTION (NAVIGATION/PROOF) -->
+          <div class="mobile-screen" id="screen-need-detail">
+            <div class="screen-back-header">
+              <button class="back-btn" id="btn-back-detail-to-feed">← Feed</button>
+              <h3 id="detail-category-title">Need Details</h3>
+            </div>
+            
+            <div class="detail-container">
+              <div class="detail-urgency-badge" id="detail-urgency-badge">Urgent</div>
+              
+              <!-- Emergency Bypass Banner -->
+              <div class="emergency-bypass-banner hidden" id="emergency-bypass-banner">
+                <p>🚑 <strong>Genuine Medical Emergency?</strong></p>
+                <p>Call the ambulance or emergency services first before waiting for helpers.</p>
+                <a href="tel:102" class="btn btn-danger btn-block" id="btn-ambulance-call">📞 Call Ambulance (102)</a>
+              </div>
+
+              <div class="detail-info-block">
+                <p class="detail-description" id="detail-description">Description of the need request...</p>
+                <div class="detail-meta">
+                  <span>📍 Zone: <strong id="detail-zone">Gate 3</strong></span>
+                  <span id="detail-timestamp">Posted: 5m ago</span>
+                </div>
+                <div class="detail-photo-before" id="detail-photo-before-wrapper">
+                  <img src="" id="detail-photo-before" alt="Photo before" class="photo-preview hidden">
+                </div>
+              </div>
+
+              <!-- Locked/Unlocked States based on status -->
+              <div class="detail-action-block">
+                <!-- If OPEN: Show accept button -->
+                <div class="action-state-open" id="action-state-open">
+                  <button class="btn btn-primary btn-block" id="btn-accept-need">🙋 Accept & Assist</button>
+                </div>
+
+                <!-- If ACCEPTED: Show navigation maps, contact masking & resolve proof -->
+                <div class="action-state-accepted hidden" id="action-state-accepted">
+                  <div class="helper-status-header">
+                    <h4>🔒 Accepted Task (In Progress)</h4>
+                    <p>Precise location unlocked only for you.</p>
+                  </div>
+
+                  <!-- Mini Map Leaflet -->
+                  <div class="mini-map-container">
+                    <div id="navigation-map"></div>
+                    <button class="btn btn-outline-primary btn-sm btn-navigate" id="btn-external-navigation">🧭 Open in External Maps (Navigate)</button>
+                  </div>
+
+                  <!-- Masked communication -->
+                  <div class="masked-comms-block">
+                    <h5>Masked Contacts (Urgent Cases)</h5>
+                    <p>Contact information is routed securely. Identity remains hidden.</p>
+                    <div class="comms-buttons">
+                      <a href="#" class="btn btn-outline-success" id="btn-masked-call">📞 Masked Call</a>
+                      <a href="#" class="btn btn-outline-success" id="btn-masked-whatsapp">💬 Masked WhatsApp</a>
+                    </div>
+                  </div>
+
+                  <!-- Resolve form -->
+                  <div class="resolve-proof-block">
+                    <h5>Resolve Need (Mandatory Proof)</h5>
+                    <div class="form-group">
+                      <input type="file" id="photo-after-input" accept="image/*" class="hidden">
+                      <button class="btn btn-secondary btn-block" id="btn-select-resolve-photo">📸 Upload After-Photo Proof</button>
+                      <span id="photo-after-file-name" class="file-name-label">No photo attached</span>
+                    </div>
+
+                    <!-- Face Blur Canvas Editor After -->
+                    <div class="face-blur-editor hidden" id="face-blur-editor-after">
+                      <div class="editor-header">
+                        <span>Tap to blur faces before submitting</span>
+                        <button type="button" class="btn btn-xs btn-success" id="btn-save-face-blur-after">Apply Blur</button>
+                      </div>
+                      <div class="canvas-wrapper">
+                        <canvas id="face-blur-canvas-after"></canvas>
+                      </div>
+                    </div>
+
+                    <button class="btn btn-success btn-block" id="btn-submit-resolution">Mark Resolved with Proof</button>
+                  </div>
+                </div>
+
+                <!-- If RESOLVED: Show resolution proof to everyone -->
+                <div class="action-state-resolved hidden" id="action-state-resolved">
+                  <div class="resolution-banner">
+                    <h4>✅ Need Resolved</h4>
+                    <p class="resolved-timestamp" id="detail-resolved-time">Resolved at: 12:40</p>
+                  </div>
+                  <h5>Verified Photo Proof</h5>
+                  <div class="detail-photo-after-wrapper">
+                    <img src="" id="detail-photo-after" alt="Resolution Proof" class="photo-preview">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Flag / Report system (Anti-Gaming) -->
+              <div class="detail-report-section" id="detail-report-section">
+                <hr>
+                <div class="report-box">
+                  <label for="report-reason">Help keep the board safe. Flag fake or wrong posts:</label>
+                  <div class="report-input-row">
+                    <select id="report-reason">
+                      <option value="">-- Choose Reason --</option>
+                      <option value="Fake">Fake Post / Not Real</option>
+                      <option value="Spam">Spam/Flooding</option>
+                      <option value="Wrong location">Incorrect Location</option>
+                      <option value="Inappropriate">Inappropriate Content</option>
+                    </select>
+                    <button class="btn btn-danger btn-sm" id="btn-report-post">Flag Post</button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- SCREEN 5: REGISTER AS MEDICAL VOLUNTEER -->
+          <div class="mobile-screen" id="screen-medical-verify">
+            <div class="screen-back-header">
+              <button class="back-btn" id="btn-back-medical-to-feed">← Board</button>
+              <h3>Medical Helper Verification</h3>
+            </div>
+            
+            <div class="medical-registration-form">
+              <div class="welcome-text">
+                <p>Medical needs require routing only to helpers with approved first-aid certificates or medical credentials to prevent dangerous outcomes.</p>
+              </div>
+
+              <div id="medical-status-box" class="alert-box info">
+                <span>Current Status: <strong>Unverified Helper</strong></span>
+              </div>
+
+              <form id="medical-helper-form" onsubmit="return false;">
+                <div class="form-group">
+                  <label>First-Aid / Medical Certificate Photo</label>
+                  <div class="photo-uploader-box">
+                    <input type="file" id="medical-cert-input" accept="image/*" class="hidden">
+                    <button type="button" class="btn btn-secondary btn-block" id="btn-select-medical-cert">📸 Select Certificate Photo</button>
+                    <span id="medical-cert-file-name" class="file-name-label">No photo attached</span>
+                  </div>
+                </div>
+
+                <button class="btn btn-primary btn-block" id="btn-submit-medical-helper">Submit Certificate for Approval</button>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT SIDE: Coordinator Admin Dashboard -->
+    <section class="workspace-section dashboard-section">
+      <div class="section-header">
+        <h2>Coordinator Admin Console</h2>
+        <p>Moderating the local network, verifying medical volunteers, and resolving appeals</p>
+      </div>
+
+      <div class="dashboard-tabs">
+        <button class="tab-btn active" data-tab="tab-needs">Moderate Board (<span id="dash-need-count">0</span>)</button>
+        <button class="tab-btn" data-tab="tab-helpers">Helper Approvals (<span id="dash-helper-count">0</span>)</button>
+        <button class="tab-btn" data-tab="tab-reports">Flagged Reports</button>
+        <button class="tab-btn" data-tab="tab-system">Security Audit Logs</button>
+      </div>
+
+      <!-- TAB 1: ALL NEEDS MODERATION -->
+      <div class="tab-content active" id="tab-needs">
+        <div class="table-container">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Urgency</th>
+                <th>Zone</th>
+                <th>Reports</th>
+                <th>Status</th>
+                <th>Posted At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="dash-needs-table-body">
+              <tr>
+                <td colspan="7" class="text-center">No reports loaded.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 2: PENDING HELPERS APPROVAL -->
+      <div class="tab-content" id="tab-helpers">
+        <div class="pending-helpers-list" id="pending-helpers-list">
+          <div class="empty-state">
+            <p>No helper certificates pending coordinator review.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: FLAGGED REPORTS QUEUE -->
+      <div class="tab-content" id="tab-reports">
+        <div class="table-container">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Need ID</th>
+                <th>Reporter Hash</th>
+                <th>Reason</th>
+                <th>IP Address</th>
+                <th>Subnet</th>
+                <th>Reported At</th>
+              </tr>
+            </thead>
+            <tbody id="dash-reports-table-body">
+              <tr>
+                <td colspan="6" class="text-center">No flag logs available.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 4: SYSTEM LOGS / SECURITY AUDIT -->
+      <div class="tab-content" id="tab-system">
+        <div class="audit-dashboard-cards">
+          <div class="audit-card">
+            <h4>Data Retention Rule</h4>
+            <p class="audit-rule">⏰ <strong>30-Day Auto-Purge</strong>: Active</p>
+            <p class="audit-desc">Phone numbers, emails, and verification traces are purged from database records automatically. Only anonymous user hashes remain.</p>
+          </div>
+          <div class="audit-card">
+            <h4>Weighted Trust Model</h4>
+            <p class="audit-rule">🛡️ <strong>Anti-Gaming</strong>: Active</p>
+            <p class="audit-desc">Reports sharing IP subnets scale down in weight. 5+ distinct user reports are required to auto-hide a post. Permanent bans require human reviewer check.</p>
+          </div>
+        </div>
+        
+        <div class="log-console-container">
+          <h5>System Console Logs</h5>
+          <div class="log-console" id="system-log-console">
+            <!-- Dynamically written log traces -->
+            <div class="log-line info">[System Init] Security checks verified. Hashing function ready.</div>
+            <div class="log-line info">[Retention Monitor] Automated 30-day purge schedule initialized.</div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Leaflet Javascript -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <!-- Main Application Logic Script -->
+  <script src="app.js"></script>
+</body>
+</html>

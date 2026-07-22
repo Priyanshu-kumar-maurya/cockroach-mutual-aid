@@ -1,0 +1,600 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const { dbQuery, dbReady, purgeExpiredVerifications, checkPostRateLimit, processReport } = require('./database');
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+app.use(cors());
+app.use(express.json({ limit: '10mb' })); // support base64 photos
+
+// Simple memory store for OTPs (simulating phone/email OTP)
+const activeOTPs = {};
+
+// Helper: Generate a unique ID
+function generateId() {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+// Helper: Simple SHA256 simulation or hash generator for user anonymity
+function hashValue(value) {
+  // Simple deterministic hash for demo anonymity
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    const char = value.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return 'usr_' + Math.abs(hash).toString(16);
+}
+
+// Middleware: Authenticate Session
+async function authenticate(req, res, next) {
+  const sessionId = req.headers['authorization'];
+  if (!sessionId) {
+    return res.status(401).json({ error: 'No authorization session provided.' });
+  }
+
+  try {
+    const session = await dbQuery.get(
+      `SELECT * FROM sessions WHERE session_id = ? AND is_active = 1`,
+      [sessionId]
+    );
+
+    if (!session) {
+      return res.status(401).json({ error: 'Session expired or invalid.' });
+    }
+
+    // Auto-logout after 15 minutes of inactivity
+    const now = new Date();
+    const lastActive = new Date(session.last_active_at);
+    const diffMs = now - lastActive;
+    if (diffMs > 15 * 60 * 1000) {
+      await dbQuery.run(
+        `UPDATE sessions SET is_active = 0 WHERE session_id = ?`,
+        [sessionId]
+      );
+      return res.status(401).json({ error: 'Session expired due to inactivity (15 mins).' });
+    }
+
+    // Update last active time
+    const nowIso = now.toISOString();
+    await dbQuery.run(
+      `UPDATE sessions SET last_active_at = ? WHERE session_id = ?`,
+      [nowIso, sessionId]
+    );
+
+    req.userHash = session.user_hash;
+    req.sessionId = sessionId;
+    next();
+  } catch (err) {
+    console.error('Auth error:', err);
+    res.status(500).json({ error: 'Internal auth error.' });
+  }
+}
+
+// Run expired verification cleanup once at startup, then every hour
+dbReady.then(() => {
+  purgeExpiredVerifications();
+  setInterval(purgeExpiredVerifications, 60 * 60 * 1000);
+});
+
+// --- ENDPOINTS ---
+
+// 1. Verification Request (Trigger OTP)
+app.post('/api/verify/request', (req, res) => {
+  const { type, identifier } = req.body; // type: 'phone' or 'email'
+  if (!identifier) {
+    return res.status(400).json({ error: 'Identifier is required.' });
+  }
+
+  // Generate a random 6 digit OTP code
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  activeOTPs[identifier] = {
+    code,
+    expires: Date.now() + 5 * 60 * 1000 // 5 mins validity
+  };
+
+  console.log(`[OTP Sent] Target: ${identifier} | Code: ${code} (Expires in 5 mins)`);
+
+  res.json({
+    message: `OTP sent successfully to your ${type}.`,
+    // For demo purposes, we return the code in development mode so they don't have to check console
+    demoCode: code
+  });
+});
+
+// 2. Verification Confirm (Verify OTP & Create Session)
+app.post('/api/verify/confirm', async (req, res) => {
+  const { type, identifier, code, deviceinfo } = req.body;
+  if (!identifier || !code) {
+    return res.status(400).json({ error: 'Identifier and OTP code are required.' });
+  }
+
+  const record = activeOTPs[identifier];
+  if (!record || record.expires < Date.now()) {
+    return res.status(400).json({ error: 'OTP has expired or does not exist.' });
+  }
+
+  if (record.code !== code) {
+    return res.status(400).json({ error: 'Incorrect OTP code.' });
+  }
+
+  // Successful verification
+  delete activeOTPs[identifier];
+
+  const userHash = hashValue(identifier);
+  const now = new Date().toISOString();
+
+  // Create masked identifier
+  let masked = identifier;
+  if (type === 'phone') {
+    masked = identifier.substring(0, 3) + '******' + identifier.substring(identifier.length - 4);
+  } else if (type === 'email') {
+    const parts = identifier.split('@');
+    masked = parts[0].substring(0, 2) + '****@' + parts[1];
+  }
+
+  try {
+    // Record verification (auto-deletes in 30 days)
+    const verificationId = generateId();
+    await dbQuery.run(
+      `INSERT INTO verifications (verification_id, user_hash, type, masked_identifier, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [verificationId, userHash, type, masked, now]
+    );
+
+    // Create session
+    const sessionId = 'sess_' + generateId();
+    await dbQuery.run(
+      `INSERT INTO sessions (session_id, user_hash, device_info, is_active, created_at, last_active_at)
+       VALUES (?, ?, ?, 1, ?, ?)`,
+      [sessionId, userHash, deviceinfo || 'Web Client', now, now]
+    );
+
+    res.json({
+      message: 'Verification successful.',
+      sessionId,
+      userHash,
+      type
+    });
+  } catch (err) {
+    console.error('Confirm verification error:', err);
+    res.status(500).json({ error: 'Database verification failure.' });
+  }
+});
+
+// 3. Coordinator Proxy Verification
+app.post('/api/verify/coordinator-proxy', async (req, res) => {
+  const { proxyName, deviceinfo } = req.body;
+  if (!proxyName) {
+    return res.status(400).json({ error: 'Proxy/Coordinator validation code is required.' });
+  }
+
+  // Coordinator proxy accepts a verbal identifier generated on the on-ground helpdesk
+  // For safety, generate a dynamic hash immediately and delete raw records
+  const userHash = 'usr_proxy_' + hashValue(proxyName + Date.now().toString());
+  const now = new Date().toISOString();
+
+  try {
+    const verificationId = generateId();
+    await dbQuery.run(
+      `INSERT INTO verifications (verification_id, user_hash, type, masked_identifier, created_at)
+       VALUES (?, ?, 'coordinator', ?, ?)`,
+      [verificationId, userHash, 'On-Ground coordinator proxy', now]
+    );
+
+    // Create session
+    const sessionId = 'sess_' + generateId();
+    await dbQuery.run(
+      `INSERT INTO sessions (session_id, user_hash, device_info, is_active, created_at, last_active_at)
+       VALUES (?, ?, ?, 1, ?, ?)`,
+      [sessionId, userHash, deviceinfo || 'On-Ground Device', now, now]
+    );
+
+    res.json({
+      message: 'Verified by Coordinator Proxy successfully.',
+      sessionId,
+      userHash,
+      type: 'coordinator'
+    });
+  } catch (err) {
+    console.error('Coordinator proxy error:', err);
+    res.status(500).json({ error: 'Database proxy verification failure.' });
+  }
+});
+
+// 4. Session Status check
+app.get('/api/session/status', authenticate, async (req, res) => {
+  try {
+    const helper = await dbQuery.get(
+      `SELECT is_medical_verified FROM helpers WHERE helper_hash = ?`,
+      [req.userHash]
+    );
+
+    res.json({
+      authenticated: true,
+      userHash: req.userHash,
+      isMedicalVerified: helper ? helper.is_medical_verified === 1 : false
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed checking session status.' });
+  }
+});
+
+// 5. Remote Session Kill
+app.post('/api/session/kill-all', authenticate, async (req, res) => {
+  try {
+    // Terminate all sessions except the current active one
+    const result = await dbQuery.run(
+      `UPDATE sessions SET is_active = 0 WHERE user_hash = ? AND session_id != ?`,
+      [req.userHash, req.sessionId]
+    );
+
+    res.json({
+      message: `Successfully terminated ${result.changes} other active sessions.`
+    });
+  } catch (err) {
+    console.error('Kill sessions error:', err);
+    res.status(500).json({ error: 'Failed to terminate other sessions.' });
+  }
+});
+
+// 6. Logout Current Session
+app.post('/api/session/logout', authenticate, async (req, res) => {
+  try {
+    await dbQuery.run(
+      `UPDATE sessions SET is_active = 0 WHERE session_id = ?`,
+      [req.sessionId]
+    );
+    res.json({ message: 'Session logged out successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to logout.' });
+  }
+});
+
+// 7. Post a Need (Rate limited to 5/hr, 20/day)
+app.post('/api/needs', authenticate, async (req, res) => {
+  const { category, urgency, description, photo_before, zone, exact_location, contact_channel } = req.body;
+
+  if (!category || !urgency || !description || !zone || !exact_location) {
+    return res.status(400).json({ error: 'All fields (category, urgency, description, zone, exact_location) are required.' });
+  }
+
+  try {
+    // Enforce rate limiting
+    const limits = await checkPostRateLimit(req.userHash);
+    if (limits.hourExceeded) {
+      return res.status(429).json({ error: 'Rate limit exceeded: Max 5 posts per hour. Please wait.' });
+    }
+    if (limits.dayExceeded) {
+      return res.status(429).json({ error: 'Rate limit exceeded: Max 20 posts per day.' });
+    }
+
+    const needId = 'need_' + generateId();
+    const now = new Date().toISOString();
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || '127.0.0.1';
+
+    // Verify contact channel structure
+    const phoneVerified = (await dbQuery.all(`SELECT 1 FROM verifications WHERE user_hash = ? AND type = 'phone'`, [req.userHash])).length > 0 ? 1 : 0;
+    const emailVerified = (await dbQuery.all(`SELECT 1 FROM verifications WHERE user_hash = ? AND type = 'email'`, [req.userHash])).length > 0 ? 1 : 0;
+
+    await dbQuery.run(
+      `INSERT INTO needs (
+        need_id, category, urgency, description, photo_before, zone, exact_location,
+        phone_verified, email_verified, contact_channel, report_count, status,
+        posted_at, user_hash, ip_address
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'Open', ?, ?, ?)`,
+      [
+        needId,
+        category,
+        urgency,
+        description,
+        photo_before || null,
+        zone,
+        JSON.stringify(exact_location),
+        phoneVerified,
+        emailVerified,
+        contact_channel ? JSON.stringify(contact_channel) : null,
+        now,
+        req.userHash,
+        ipAddress
+      ]
+    );
+
+    res.status(201).json({
+      message: 'Need posted successfully.',
+      need_id: needId
+    });
+  } catch (err) {
+    console.error('Post need error:', err);
+    res.status(500).json({ error: 'Failed to post need.' });
+  }
+});
+
+// 8. Get Needs Feed (Strip exact locations unless caller is the accepted volunteer)
+app.get('/api/needs', async (req, res) => {
+  const sessionId = req.headers['authorization'];
+  let callerUserHash = null;
+
+  if (sessionId) {
+    const session = await dbQuery.get(
+      `SELECT user_hash FROM sessions WHERE session_id = ? AND is_active = 1`,
+      [sessionId]
+    );
+    if (session) {
+      callerUserHash = session.user_hash;
+    }
+  }
+
+  try {
+    // Select open/accepted/resolved needs that are not Hidden
+    const rows = await dbQuery.all(
+      `SELECT * FROM needs WHERE status != 'Hidden' ORDER BY 
+        CASE urgency 
+          WHEN 'Emergency' THEN 1 
+          WHEN 'Urgent' THEN 2 
+          WHEN 'Normal' THEN 3 
+          ELSE 4 
+        END,
+        posted_at DESC`
+    );
+
+    // Map rows and restrict coordinates
+    const redactedRows = rows.map(row => {
+      const need = { ...row };
+
+      // Parse JSON columns
+      try {
+        need.exact_location = JSON.parse(need.exact_location);
+      } catch (e) {
+        need.exact_location = null;
+      }
+
+      try {
+        need.contact_channel = JSON.parse(need.contact_channel);
+      } catch (e) {
+        need.contact_channel = null;
+      }
+
+      // Redaction safety rules:
+      // Exact GPS coordinates are ONLY visible to the accepted volunteer helper
+      const isAcceptedHelper = callerUserHash && need.accepted_by === callerUserHash;
+      const isOwner = callerUserHash && need.user_hash === callerUserHash;
+
+      if (!isAcceptedHelper && !isOwner) {
+        need.exact_location = null; // hide pin
+        if (need.contact_channel) {
+          need.contact_channel = { type: 'masked', message: 'Masked contact is unlocked only after acceptance' };
+        }
+      }
+
+      // Hide posters owner hash for security
+      delete need.user_hash;
+      delete need.ip_address;
+
+      return need;
+    });
+
+    res.json(redactedRows);
+  } catch (err) {
+    console.error('Fetch needs error:', err);
+    res.status(500).json({ error: 'Failed to fetch needs board.' });
+  }
+});
+
+// 9. Accept Need (Lock to volunteer)
+app.post('/api/needs/:id/accept', authenticate, async (req, res) => {
+  const needId = req.params.id;
+
+  try {
+    const need = await dbQuery.get(`SELECT * FROM needs WHERE need_id = ?`, [needId]);
+    if (!need) {
+      return res.status(404).json({ error: 'Need not found.' });
+    }
+
+    if (need.status !== 'Open') {
+      return res.status(400).json({ error: `Cannot accept this post. Current status: ${need.status}` });
+    }
+
+    // Medical routing verification: Route only to verified helpers
+    if (need.category === 'Medical') {
+      const helper = await dbQuery.get(
+        `SELECT is_medical_verified FROM helpers WHERE helper_hash = ?`,
+        [req.userHash]
+      );
+      if (!helper || helper.is_medical_verified !== 1) {
+        return res.status(403).json({
+          error: 'Medical requests require on-ground coordinator verification. Please register first-aid proof first.'
+        });
+      }
+    }
+
+    // Accept and lock post
+    const now = new Date().toISOString();
+    await dbQuery.run(
+      `UPDATE needs SET status = 'Accepted', accepted_by = ?, accepted_at = ? WHERE need_id = ?`,
+      [req.userHash, now, needId]
+    );
+
+    res.json({
+      message: 'Need locked to your account. Coordinates unlocked.',
+      accepted_at: now
+    });
+  } catch (err) {
+    console.error('Accept need error:', err);
+    res.status(500).json({ error: 'Failed to accept need.' });
+  }
+});
+
+// 10. Resolve with Photo Proof
+app.post('/api/needs/:id/resolve', authenticate, async (req, res) => {
+  const needId = req.params.id;
+  const { photo_after } = req.body;
+
+  if (!photo_after) {
+    return res.status(400).json({ error: 'Mandatory resolution photo proof is required.' });
+  }
+
+  try {
+    const need = await dbQuery.get(`SELECT * FROM needs WHERE need_id = ?`, [needId]);
+    if (!need) {
+      return res.status(404).json({ error: 'Need not found.' });
+    }
+
+    if (need.status !== 'Accepted') {
+      return res.status(400).json({ error: 'Only accepted needs can be marked resolved.' });
+    }
+
+    if (need.accepted_by !== req.userHash) {
+      return res.status(403).json({ error: 'You are not the assigned helper for this need.' });
+    }
+
+    const now = new Date().toISOString();
+    await dbQuery.run(
+      `UPDATE needs SET status = 'Resolved', photo_after = ?, resolved_at = ? WHERE need_id = ?`,
+      [photo_after, now, needId]
+    );
+
+    res.json({
+      message: 'Need successfully resolved with proof.',
+      resolved_at: now
+    });
+  } catch (err) {
+    console.error('Resolve error:', err);
+    res.status(500).json({ error: 'Failed to resolve need.' });
+  }
+});
+
+// 11. Report Post (Anti-Gaming weighted verification)
+app.post('/api/needs/:id/report', authenticate, async (req, res) => {
+  const needId = req.params.id;
+  const { reason } = req.body; // 'Fake' | 'Spam' | 'Wrong location' | 'Inappropriate'
+  const ipAddress = req.ip || req.headers['x-forwarded-for'] || '127.0.0.1';
+
+  if (!reason) {
+    return res.status(400).json({ error: 'Reason picker value is required.' });
+  }
+
+  try {
+    const need = await dbQuery.get(`SELECT * FROM needs WHERE need_id = ?`, [needId]);
+    if (!need) {
+      return res.status(404).json({ error: 'Post not found.' });
+    }
+
+    const reportResult = await processReport(needId, req.userHash, reason, ipAddress);
+
+    res.json({
+      message: 'Report submitted successfully.',
+      currentWeightedScore: reportResult.score,
+      autoHidden: reportResult.hidden
+    });
+  } catch (err) {
+    if (err.message === 'You have already reported this post.') {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error('Reporting error:', err);
+    res.status(500).json({ error: 'Failed to submit report.' });
+  }
+});
+
+// 12. Register as Medical Helper
+app.post('/api/helper/register', authenticate, async (req, res) => {
+  const { certificate_photo } = req.body;
+  if (!certificate_photo) {
+    return res.status(400).json({ error: 'First-aid certificate photo proof is required.' });
+  }
+
+  try {
+    const now = new Date().toISOString();
+    // Insert or update helper request
+    await dbQuery.run(
+      `INSERT INTO helpers (helper_hash, is_medical_verified, certificate_photo, created_at)
+       VALUES (?, 0, ?, ?)
+       ON CONFLICT(helper_hash) DO UPDATE SET is_medical_verified = 0, certificate_photo = ?, created_at = ?`,
+      [req.userHash, certificate_photo, now, certificate_photo, now]
+    );
+
+    res.json({
+      message: 'Medical helper registration submitted. Pending coordinator verification.'
+    });
+  } catch (err) {
+    console.error('Helper registration error:', err);
+    res.status(500).json({ error: 'Failed to register as helper.' });
+  }
+});
+
+// --- COORDINATOR/ADMIN DASHBOARD ENDPOINTS ---
+// (Normally these would have an admin-only middleware, for simplicity we allow access for coordination checks)
+
+// A. Get ALL Needs (even Hidden ones)
+app.get('/api/coordinator/needs', async (req, res) => {
+  try {
+    const rows = await dbQuery.all(`SELECT * FROM needs ORDER BY posted_at DESC`);
+    const parsedRows = rows.map(r => {
+      try { r.exact_location = JSON.parse(r.exact_location); } catch(e) {}
+      try { r.contact_channel = JSON.parse(r.contact_channel); } catch(e) {}
+      return r;
+    });
+    res.json(parsedRows);
+  } catch (err) {
+    res.status(500).json({ error: 'Coordinator fetch needs error.' });
+  }
+});
+
+// B. Get Pending Medical Helpers
+app.get('/api/coordinator/pending-helpers', async (req, res) => {
+  try {
+    const rows = await dbQuery.all(`SELECT * FROM helpers WHERE is_medical_verified = 0`);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch pending helper accounts.' });
+  }
+});
+
+// C. Approve Medical Helper
+app.post('/api/coordinator/approve-helper', async (req, res) => {
+  const { helper_hash, coordinator_hash } = req.body;
+  if (!helper_hash) {
+    return res.status(400).json({ error: 'Helper hash is required.' });
+  }
+
+  try {
+    await dbQuery.run(
+      `UPDATE helpers SET is_medical_verified = 1, approved_by = ? WHERE helper_hash = ?`,
+      [coordinator_hash || 'admin', helper_hash]
+    );
+    res.json({ message: 'Helper approved successfully.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Approval failure.' });
+  }
+});
+
+// D. Manually Hide/Unhide/Moderate Post (Appeal support)
+app.post('/api/coordinator/moderate-post', async (req, res) => {
+  const { need_id, action } = req.body; // action: 'Hide' | 'Restore' | 'Delete'
+  if (!need_id || !action) {
+    return res.status(400).json({ error: 'Post ID and action are required.' });
+  }
+
+  try {
+    if (action === 'Hide') {
+      await dbQuery.run(`UPDATE needs SET status = 'Hidden' WHERE need_id = ?`, [need_id]);
+    } else if (action === 'Restore') {
+      await dbQuery.run(`UPDATE needs SET status = 'Open' WHERE need_id = ?`, [need_id]);
+    } else if (action === 'Delete') {
+      await dbQuery.run(`DELETE FROM needs WHERE need_id = ?`, [need_id]);
+      await dbQuery.run(`DELETE FROM reports WHERE need_id = ?`, [need_id]);
+    }
+    res.json({ message: `Post moderation '${action}' successfully completed.` });
+  } catch (err) {
+    res.status(500).json({ error: 'Moderation failure.' });
+  }
+});
+
+dbReady.then(() => {
+  app.listen(PORT, () => {
+    console.log(`Mutual Aid Backend running on port ${PORT}`);
+  });
+});
