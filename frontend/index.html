@@ -48,28 +48,31 @@
   <!-- Top Control Bar -->
   <header class="main-header">
     <div class="header-logo">
-      <div class="logo-icon">▲</div>
+      <div class="logo-icon">🪳</div>
       <div class="logo-text">
-        <h1>MUTUAL AID BOARD</h1>
-        <span class="logo-tag">ON-GROUND RELIEF SYSTEM</span>
+        <h1>COCKROACH AID</h1>
+        <span class="logo-tag">MUTUAL RELIEF</span>
       </div>
     </div>
     
     <div class="header-controls">
-      <!-- Network Simulator -->
+      <!-- Direct Message Corner Action -->
+      <button class="corner-dm-btn" id="header-dm-btn" title="Direct Messages Inbox">
+        💬 DM <span class="unread-badge hidden" id="header-dm-unread">●</span>
+      </button>
+
+      <!-- Session Profile Badge -->
+      <div class="session-info hidden" id="session-info-bar">
+        <span class="user-pill-badge" id="session-user-badge">🪳 Cockroach</span>
+        <button id="logout-btn" class="btn-logout-icon" title="Logout">🚪</button>
+      </div>
+
+      <!-- Network Toggle -->
       <div class="control-group">
-        <label for="network-toggle">Network Mode:</label>
-        <div class="toggle-button" id="network-toggle" data-status="online">
+        <div class="toggle-button" id="network-toggle" data-status="online" title="Network Connection Mode">
           <span class="indicator-dot online"></span>
           <span class="status-label">Online</span>
         </div>
-      </div>
-      
-      <!-- Session Indicator / Quick Actions -->
-      <div class="session-info hidden" id="session-info-bar">
-        <span class="user-badge" id="session-user-badge">User: hash</span>
-        <button id="kill-sessions-btn" class="btn btn-sm btn-outline-warning" title="Terminate other active sessions remotely">Remote Kill Sessions</button>
-        <button id="logout-btn" class="btn btn-sm btn-outline-danger">Logout</button>
       </div>
     </div>
   </header>
@@ -100,8 +103,13 @@
           
           <!-- Screen Title bar -->
           <div class="screen-app-bar">
-            <span class="app-title" id="mobile-app-title">Mutual Aid Board</span>
-            <span class="app-subtitle" id="mobile-app-subtitle">Connecting Gatherings</span>
+            <div class="app-title-group">
+              <span class="app-title" id="mobile-app-title">Mutual Aid Board</span>
+              <span class="app-subtitle" id="mobile-app-subtitle">Connecting Gatherings</span>
+            </div>
+            <button class="mobile-corner-dm-btn" id="mobile-corner-dm-btn" title="Direct Messages">
+              💬 DM <span class="unread-badge hidden" id="mobile-dm-unread">●</span>
+            </button>
           </div>
 
           <!-- DM Notification Toast Alert -->

@@ -1411,10 +1411,24 @@ function requireAuthAction(actionName, callback) {
   return true;
 }
 
-// Navigation to Public Chat
+// Navigation to Public Chat & Corner DM
 document.getElementById('nav-public-chat-btn')?.addEventListener('click', () => {
   showScreen('screen-chat');
   initChatView();
+});
+
+document.getElementById('header-dm-btn')?.addEventListener('click', () => {
+  if (requireAuthAction('view direct messages')) {
+    showScreen('screen-chat');
+    initChatView();
+  }
+});
+
+document.getElementById('mobile-corner-dm-btn')?.addEventListener('click', () => {
+  if (requireAuthAction('view direct messages')) {
+    showScreen('screen-chat');
+    initChatView();
+  }
 });
 
 document.getElementById('btn-back-chat-to-feed')?.addEventListener('click', () => {
@@ -1790,17 +1804,21 @@ function checkIncomingDMs() {
   if (!state.userHash) return;
 
   const incoming = mockDatabase.dms.filter(d => d.receiver_hash === state.userHash && !d.is_read);
-  const badge = document.getElementById('dm-unread-badge');
+  const badges = [
+    document.getElementById('dm-unread-badge'),
+    document.getElementById('header-dm-unread'),
+    document.getElementById('mobile-dm-unread')
+  ];
 
   if (incoming.length > 0) {
-    badge?.classList.remove('hidden');
+    badges.forEach(b => b?.classList.remove('hidden'));
     
     const latest = incoming[incoming.length - 1];
     if (currentDmTargetHash !== latest.sender_hash) {
       showDmToast(latest.sender_hash, latest.sender_name || 'Cockroach', latest.message);
     }
   } else {
-    badge?.classList.add('hidden');
+    badges.forEach(b => b?.classList.add('hidden'));
   }
 }
 
