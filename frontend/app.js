@@ -324,10 +324,14 @@ async function requestOTP() {
 }
 
 async function confirmOTP() {
+  const nameVal = document.getElementById('verify-display-name')?.value.trim() || 'Volunteer';
   const idVal = document.getElementById('verify-identifier').value.trim();
   const codeVal = document.getElementById('verify-code').value.trim();
 
   if (!idVal || !codeVal) return;
+
+  let rawName = nameVal.replace(/ Cockroach$/, '');
+  const formattedDisplayName = `${rawName} Cockroach`;
 
   try {
     const res = await fetch(`${BACKEND_URL}/api/verify/confirm`, {
@@ -347,22 +351,21 @@ async function confirmOTP() {
       state.userHash = data.userHash;
       state.isMedicalVerified = false;
       
+      localStorage.setItem('mab_user_identifier', formattedDisplayName);
       saveSession();
       updateSessionBar();
       showScreen('screen-feed');
       refreshBoard();
-      logToConsole(`OTP verified successfully. User Hash created: ${state.userHash}`, 'success');
+      logToConsole(`OTP verified. Welcome ${formattedDisplayName}! Hash: ${state.userHash}`, 'success');
     } else {
       const err = await res.json();
       alert(err.error);
     }
   } catch (e) {
-    // Offline verification confirm
     const mockData = JSON.parse(localStorage.getItem('mock_active_otp'));
     if (mockData && mockData.id === idVal && mockData.code === codeVal) {
       state.sessionId = 'mock_sess_' + Math.random().toString(36).substring(2, 10);
       
-      // Simple hash implementation for frontend
       let hash = 0;
       for (let i = 0; i < idVal.length; i++) {
         hash = (hash << 5) - hash + idVal.charCodeAt(i);
@@ -371,11 +374,12 @@ async function confirmOTP() {
       state.userHash = 'usr_mock_' + Math.abs(hash).toString(16);
       state.isMedicalVerified = false;
 
+      localStorage.setItem('mab_user_identifier', formattedDisplayName);
       saveSession();
       updateSessionBar();
       showScreen('screen-feed');
       refreshBoard();
-      logToConsole(`[Offline Mock Auth] OTP code verified. Hash: ${state.userHash}`, 'success');
+      logToConsole(`[Offline Mock Auth] OTP code verified. Welcome ${formattedDisplayName}!`, 'success');
     } else {
       alert('Invalid OTP code.');
     }
@@ -443,7 +447,8 @@ function updateSessionBar() {
 
   if (state.sessionId) {
     bar.classList.remove('hidden');
-    badge.textContent = `User: ${state.userHash.substring(0, 10)}...`;
+    const name = localStorage.getItem('mab_user_identifier') || 'Volunteer Cockroach';
+    badge.textContent = `🪳 ${name}`;
   } else {
     bar.classList.add('hidden');
   }
