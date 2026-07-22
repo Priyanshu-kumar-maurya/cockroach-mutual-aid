@@ -1533,22 +1533,26 @@ async function sendChatMessage() {
   const displayName = `${rawName} Cockroach`;
 
   try {
-    const res = await fetch(`${BACKEND_URL}/api/chat/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${state.sessionId}`
-      },
-      body: JSON.stringify({
-        message: messageText,
-        display_name: displayName
-      })
-    });
+    let res = null;
+    if (chatBackendAvailable) {
+      res = await fetch(`${BACKEND_URL}/api/chat/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${state.sessionId}`
+        },
+        body: JSON.stringify({
+          message: messageText,
+          display_name: displayName
+        })
+      });
+    }
 
-    if (res.ok) {
+    if (res && res.ok) {
       input.value = '';
       fetchChatMessages();
     } else {
+      if (res && res.status === 401) chatBackendAvailable = false;
       throw new Error('Failed to send chat');
     }
   } catch (e) {
@@ -1650,7 +1654,7 @@ async function fetchDirectMessages() {
       });
       if (res.ok) {
         dms = await res.json();
-      } else if (res.status === 404) {
+      } else if (res.status === 401 || res.status === 404) {
         dmBackendAvailable = false;
         dms = mockDatabase.dms.filter(d => 
           (d.sender_hash === state.userHash && d.receiver_hash === currentDmTargetHash) ||
@@ -1724,23 +1728,27 @@ async function sendDirectMessage() {
   const senderName = `${rawName} Cockroach`;
 
   try {
-    const res = await fetch(`${BACKEND_URL}/api/dm/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${state.sessionId}`
-      },
-      body: JSON.stringify({
-        receiver_hash: currentDmTargetHash,
-        message: text,
-        sender_name: senderName
-      })
-    });
+    let res = null;
+    if (dmBackendAvailable) {
+      res = await fetch(`${BACKEND_URL}/api/dm/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${state.sessionId}`
+        },
+        body: JSON.stringify({
+          receiver_hash: currentDmTargetHash,
+          message: text,
+          sender_name: senderName
+        })
+      });
+    }
 
-    if (res.ok) {
+    if (res && res.ok) {
       input.value = '';
       fetchDirectMessages();
     } else {
+      if (res && res.status === 401) dmBackendAvailable = false;
       throw new Error('Failed to send DM');
     }
   } catch (e) {
