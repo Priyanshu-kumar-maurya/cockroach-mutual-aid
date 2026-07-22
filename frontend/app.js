@@ -1442,19 +1442,29 @@ function initChatView() {
   chatPollInterval = setInterval(fetchChatMessages, 4000);
 }
 
+let chatBackendAvailable = true;
+
 async function fetchChatMessages() {
   const container = document.getElementById('chat-messages-container');
   if (!container) return;
 
   let messages = [];
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/chat/messages`);
-    if (res.ok) {
-      messages = await res.json();
-    } else {
+  if (chatBackendAvailable) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/chat/messages`);
+      if (res.ok) {
+        messages = await res.json();
+      } else if (res.status === 404) {
+        chatBackendAvailable = false;
+        messages = mockDatabase.chat;
+      } else {
+        messages = mockDatabase.chat;
+      }
+    } catch (e) {
+      chatBackendAvailable = false;
       messages = mockDatabase.chat;
     }
-  } catch (e) {
+  } else {
     messages = mockDatabase.chat;
   }
 
@@ -1626,23 +1636,39 @@ function openDirectMessageScreen(targetHash, targetName) {
   fetchDirectMessages();
 }
 
+let dmBackendAvailable = true;
+
 async function fetchDirectMessages() {
   if (!currentDmTargetHash) return;
 
   let dms = [];
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/dm/messages/${currentDmTargetHash}`, {
-      headers: { 'Authorization': `Bearer ${state.sessionId}` }
-    });
-    if (res.ok) {
-      dms = await res.json();
-    } else {
+  if (dmBackendAvailable) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/dm/messages/${currentDmTargetHash}`, {
+        headers: { 'Authorization': `Bearer ${state.sessionId}` }
+      });
+      if (res.ok) {
+        dms = await res.json();
+      } else if (res.status === 404) {
+        dmBackendAvailable = false;
+        dms = mockDatabase.dms.filter(d => 
+          (d.sender_hash === state.userHash && d.receiver_hash === currentDmTargetHash) ||
+          (d.sender_hash === currentDmTargetHash && d.receiver_hash === state.userHash)
+        );
+      } else {
+        dms = mockDatabase.dms.filter(d => 
+          (d.sender_hash === state.userHash && d.receiver_hash === currentDmTargetHash) ||
+          (d.sender_hash === currentDmTargetHash && d.receiver_hash === state.userHash)
+        );
+      }
+    } catch (e) {
+      dmBackendAvailable = false;
       dms = mockDatabase.dms.filter(d => 
         (d.sender_hash === state.userHash && d.receiver_hash === currentDmTargetHash) ||
         (d.sender_hash === currentDmTargetHash && d.receiver_hash === state.userHash)
       );
     }
-  } catch (e) {
+  } else {
     dms = mockDatabase.dms.filter(d => 
       (d.sender_hash === state.userHash && d.receiver_hash === currentDmTargetHash) ||
       (d.sender_hash === currentDmTargetHash && d.receiver_hash === state.userHash)
