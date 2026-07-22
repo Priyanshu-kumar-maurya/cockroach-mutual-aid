@@ -1777,3 +1777,56 @@ window.viewLinkedNeed = (needId) => {
     alert(`Need #${needId} could not be located.`);
   }
 };
+
+// --- DM NOTIFICATION DAEMON & TOAST ALERT ---
+let activeToastDmSenderHash = null;
+let activeToastDmSenderName = null;
+
+function startDmNotificationDaemon() {
+  setInterval(checkIncomingDMs, 5000);
+}
+
+function checkIncomingDMs() {
+  if (!state.userHash) return;
+
+  const incoming = mockDatabase.dms.filter(d => d.receiver_hash === state.userHash && !d.is_read);
+  const badge = document.getElementById('dm-unread-badge');
+
+  if (incoming.length > 0) {
+    badge?.classList.remove('hidden');
+    
+    const latest = incoming[incoming.length - 1];
+    if (currentDmTargetHash !== latest.sender_hash) {
+      showDmToast(latest.sender_hash, latest.sender_name || 'Cockroach', latest.message);
+    }
+  } else {
+    badge?.classList.add('hidden');
+  }
+}
+
+function showDmToast(senderHash, senderName, messageText) {
+  activeToastDmSenderHash = senderHash;
+  activeToastDmSenderName = senderName;
+
+  const toast = document.getElementById('dm-toast-banner');
+  const senderEl = document.getElementById('dm-toast-sender');
+  const textEl = document.getElementById('dm-toast-text');
+
+  if (senderEl) senderEl.innerText = senderName;
+  if (textEl) textEl.innerText = `"${messageText.substring(0, 35)}..."`;
+
+  toast?.classList.remove('hidden');
+}
+
+document.getElementById('dm-toast-open-btn')?.addEventListener('click', () => {
+  document.getElementById('dm-toast-banner')?.classList.add('hidden');
+  if (activeToastDmSenderHash && activeToastDmSenderName) {
+    openDirectMessageScreen(activeToastDmSenderHash, activeToastDmSenderName);
+  }
+});
+
+document.getElementById('dm-toast-close-btn')?.addEventListener('click', () => {
+  document.getElementById('dm-toast-banner')?.classList.add('hidden');
+});
+
+startDmNotificationDaemon();

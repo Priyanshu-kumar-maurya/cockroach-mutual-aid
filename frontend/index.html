@@ -104,6 +104,17 @@
             <span class="app-subtitle" id="mobile-app-subtitle">Connecting Gatherings</span>
           </div>
 
+          <!-- DM Notification Toast Alert -->
+          <div class="dm-toast-banner hidden" id="dm-toast-banner">
+            <span class="dm-toast-icon">📩</span>
+            <div class="dm-toast-content">
+              <strong id="dm-toast-sender">Priyanshu Cockroach</strong>
+              <span id="dm-toast-text">Sent you a private 1-on-1 message</span>
+            </div>
+            <button class="btn btn-xs btn-success" id="dm-toast-open-btn">View DM</button>
+            <button class="dm-toast-close" id="dm-toast-close-btn">&times;</button>
+          </div>
+
           <!-- SCREEN 1: VERIFICATION / SIGN-IN SCREEN -->
           <div class="mobile-screen active" id="screen-verify">
             <div class="welcome-text">
@@ -182,7 +193,7 @@
             <!-- Bottom tab navigation -->
             <div class="mobile-bottom-nav">
               <button class="nav-item active" id="nav-board-feed">📋 Board</button>
-              <button class="nav-item" id="nav-public-chat-btn">💬 Chat</button>
+              <button class="nav-item" id="nav-public-chat-btn">💬 Chat <span class="unread-badge hidden" id="dm-unread-badge">●</span></button>
               <button class="nav-item" id="nav-medical-verify">🩺 Medical</button>
             </div>
           </div>
