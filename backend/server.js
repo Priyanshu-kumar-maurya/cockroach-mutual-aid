@@ -31,9 +31,14 @@ function hashValue(value) {
 
 // Middleware: Authenticate Session
 async function authenticate(req, res, next) {
-  const sessionId = req.headers['authorization'];
-  if (!sessionId) {
+  let authHeader = req.headers['authorization'];
+  if (!authHeader) {
     return res.status(401).json({ error: 'No authorization session provided.' });
+  }
+
+  let sessionId = authHeader;
+  if (sessionId.startsWith('Bearer ')) {
+    sessionId = sessionId.substring(7).trim();
   }
 
   try {
