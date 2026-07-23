@@ -41,7 +41,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   
   <!-- Vanilla CSS Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=2.1">
+  <link rel="stylesheet" href="style.css?v=2.2">
 </head>
 <body>
   
@@ -442,30 +442,45 @@
             </div>
           </div>
 
-          <!-- SCREEN 6: PUBLIC CHAT ROOM -->
+          <!-- SCREEN 6: PUBLIC CHAT & DM HUB -->
           <div class="mobile-screen" id="screen-chat">
             <div class="screen-back-header">
               <button class="back-btn" id="btn-back-chat-to-feed">← Board</button>
-              <h3>💬 Public Chat Room</h3>
+              <h3>💬 Communication Hub</h3>
+            </div>
+
+            <!-- Sub-Tabs: Public Chat vs 1-on-1 DMs -->
+            <div class="chat-type-nav">
+              <button class="chat-type-btn active" id="tab-public-chat-view">🌐 Public Chat (Everyone)</button>
+              <button class="chat-type-btn" id="tab-private-dms-view">✉️ 1-on-1 Private DMs</button>
             </div>
 
             <!-- Guest notice if unverified -->
             <div class="guest-chat-banner hidden" id="guest-chat-banner">
-              🔒 <span><strong>Guest Mode</strong>: You can read messages. Register to chat or send DMs.</span>
+              🔒 <span><strong>Guest Mode</strong>: You can read public chat. Register to send messages or DMs.</span>
               <button class="btn btn-xs btn-primary" id="btn-guest-register-chat">Register Now</button>
             </div>
 
-            <!-- Messages Stream -->
-            <div class="chat-messages-container" id="chat-messages-container">
-              <div class="empty-state">
-                <p>Loading messages...</p>
+            <!-- VIEW 1: Public Broadcast Chat Stream -->
+            <div class="chat-view-section" id="view-public-chat-section">
+              <div class="chat-messages-container" id="chat-messages-container">
+                <div class="empty-state">
+                  <p>Loading public messages...</p>
+                </div>
+              </div>
+              <div class="chat-input-area">
+                <input type="text" id="chat-input-message" placeholder="Broadcast to everyone... (Auto-appends Cockroach)">
+                <button class="btn btn-primary btn-sm" id="btn-send-chat">Send</button>
               </div>
             </div>
 
-            <!-- Message Input Area -->
-            <div class="chat-input-area">
-              <input type="text" id="chat-input-message" placeholder="Type message... (Auto-appends Cockroach)">
-              <button class="btn btn-primary btn-sm" id="btn-send-chat">Send</button>
+            <!-- VIEW 2: 1-on-1 Private DM Conversations List -->
+            <div class="chat-view-section hidden" id="view-private-dms-section">
+              <div class="dm-conversations-list" id="dm-conversations-list">
+                <div class="empty-state">
+                  <p>No active 1-on-1 private conversations yet. Tap any user's 🪳 avatar or name to send a private DM!</p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -519,8 +534,8 @@
       </div>
     </div>
 
-    <!-- RIGHT SIDE: Coordinator Admin Dashboard -->
-    <section class="workspace-section dashboard-section">
+    <!-- RIGHT SIDE: Coordinator Admin Dashboard (Hidden for normal users) -->
+    <section class="workspace-section dashboard-section hidden" id="coordinator-dashboard-section">
       <div class="section-header">
         <h2>Coordinator Admin Console</h2>
         <p>Moderating the local network, verifying medical volunteers, and resolving appeals</p>

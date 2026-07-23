@@ -1427,24 +1427,50 @@ function requireAuthAction(actionName, callback) {
 }
 
 // Navigation to Public Chat & Corner DM
-document.getElementById('nav-public-chat-btn')?.addEventListener('click', () => {
-  showScreen('screen-chat');
-  initChatView();
+document.getElementById('tab-public-chat-view')?.addEventListener('click', () => {
+  document.getElementById('tab-public-chat-view').classList.add('active');
+  document.getElementById('tab-private-dms-view').classList.remove('active');
+  document.getElementById('view-public-chat-section').classList.remove('hidden');
+  document.getElementById('view-private-dms-section').classList.add('hidden');
+  fetchChatMessages();
 });
 
-document.getElementById('header-dm-btn')?.addEventListener('click', () => {
-  if (requireAuthAction('view direct messages')) {
-    showScreen('screen-chat');
-    initChatView();
-  }
+document.getElementById('tab-private-dms-view')?.addEventListener('click', () => {
+  document.getElementById('tab-private-dms-view').classList.add('active');
+  document.getElementById('tab-public-chat-view').classList.remove('active');
+  document.getElementById('view-private-dms-section').classList.remove('hidden');
+  document.getElementById('view-public-chat-section').classList.add('hidden');
+  renderPrivateDMsList();
 });
 
-document.getElementById('mobile-corner-dm-btn')?.addEventListener('click', () => {
-  if (requireAuthAction('view direct messages')) {
-    showScreen('screen-chat');
-    initChatView();
+function renderPrivateDMsList() {
+  const container = document.getElementById('dm-conversations-list');
+  if (!container) return;
+
+  const dms = mockDatabase.dms.filter(d => d.sender_hash === state.userHash || d.receiver_hash === state.userHash);
+  if (!dms || dms.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>No active 1-on-1 private conversations yet. Tap any user\'s 🪳 avatar or name on the board to send a private DM!</p></div>';
+    return;
   }
-});
+
+  const partners = {};
+  dms.forEach(d => {
+    const isOwn = d.sender_hash === state.userHash;
+    const partnerHash = isOwn ? d.receiver_hash : d.sender_hash;
+    const partnerName = isOwn ? 'Cockroach Member' : (d.sender_name || 'Cockroach');
+    partners[partnerHash] = { hash: partnerHash, name: partnerName, lastMsg: d.message, time: d.created_at };
+  });
+
+  container.innerHTML = Object.values(partners).map(p => `
+    <div class="dm-conversation-item" onclick="openDirectMessageScreen('${p.hash}', '${p.name}')">
+      <div class="chat-avatar-badge">🪳</div>
+      <div class="dm-convo-info">
+        <strong style="color: var(--color-primary); font-size: 0.85rem;">${p.name}</strong>
+        <p style="color: var(--text-muted); font-size: 0.75rem; margin: 0;">"${escapeHTML(p.lastMsg.substring(0, 30))}..."</p>
+      </div>
+    </div>
+  `).join('');
+}
 
 document.getElementById('btn-back-chat-to-feed')?.addEventListener('click', () => {
   showScreen('screen-feed');
@@ -1455,8 +1481,26 @@ document.getElementById('btn-back-dm-to-chat')?.addEventListener('click', () => 
   showScreen('screen-chat');
 });
 
-document.getElementById('btn-guest-register-chat')?.addEventListener('click', () => {
-  showScreen('screen-welcome');
+document.getElementById('nav-public-chat-btn')?.addEventListener('click', () => {
+  showScreen('screen-chat');
+  initChatView();
+  document.getElementById('tab-public-chat-view')?.click();
+});
+
+document.getElementById('header-dm-btn')?.addEventListener('click', () => {
+  if (requireAuthAction('view direct messages')) {
+    showScreen('screen-chat');
+    initChatView();
+    document.getElementById('tab-private-dms-view')?.click();
+  }
+});
+
+document.getElementById('mobile-corner-dm-btn')?.addEventListener('click', () => {
+  if (requireAuthAction('view direct messages')) {
+    showScreen('screen-chat');
+    initChatView();
+    document.getElementById('tab-private-dms-view')?.click();
+  }
 });
 
 function initChatView() {
