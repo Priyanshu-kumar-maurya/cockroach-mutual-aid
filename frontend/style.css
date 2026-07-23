@@ -338,27 +338,55 @@ h1, h2, h3, h4, h5, h6 {
   gap: 0.3rem;
 }
 
+/* Global Dark Input Field Aesthetics */
+input[type="text"],
+input[type="password"],
+input[type="number"],
+select,
+textarea {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  background-color: #0f131a !important;
+  border: 1px solid #232a36 !important;
+  border-radius: 8px !important;
+  color: #f1f5f9 !important;
+  font-family: inherit;
+  font-size: 0.85rem;
+  outline: none !important;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
+}
+
 /* App Bar inside phone */
 .screen-app-bar {
-  background-color: hsla(222, 20%, 10%, 0.85);
-  backdrop-filter: var(--glass-blur);
+  background-color: #0c0f14;
   border-bottom: 1px solid var(--border-color);
-  padding: 0.8rem 1rem;
+  padding: 0.6rem 1rem;
   display: flex;
   flex-direction: column;
-  z-index: 10;
+  z-index: 50;
+  position: relative;
+  flex-shrink: 0;
 }
 
 .screen-app-bar .app-title {
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: var(--color-primary);
   text-shadow: 0 0 10px hsla(210, 100%, 55%, 0.2);
 }
 
 .screen-app-bar .app-subtitle {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
