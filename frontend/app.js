@@ -293,8 +293,8 @@ async function checkSessionStatus() {
 async function requestOTP() {
   const idEl = document.getElementById('verify-identifier');
   const idVal = idEl.value.trim();
-  if (!idVal) {
-    alert('Please enter a valid phone number or email.');
+  if (!idVal || idVal.length < 5) {
+    alert('Please enter a valid phone number or email address (e.g. +919876543210 or user@example.com).');
     return;
   }
 
@@ -309,17 +309,18 @@ async function requestOTP() {
     });
 
     const data = await res.json();
-    document.getElementById('otp-input-area').classList.remove('hidden');
-    document.getElementById('demo-otp-code').textContent = data.demoCode || '123456';
-    logToConsole(`OTP Requested for ${idVal}. SMS/Email relay logs recorded.`, 'info');
+    if (res.ok) {
+      document.getElementById('otp-input-area').classList.remove('hidden');
+      const notice = document.getElementById('otp-status-notice');
+      if (notice) {
+        notice.innerHTML = `📩 <span>${data.message}</span>`;
+      }
+      logToConsole(`OTP requested for ${idVal}. Dispatched via gateway.`, 'info');
+    } else {
+      alert(data.error || 'Failed to request OTP code.');
+    }
   } catch (e) {
-    // Mock OTP Generation offline
-    document.getElementById('otp-input-area').classList.remove('hidden');
-    const mockCode = Math.floor(100000 + Math.random() * 900000).toString();
-    document.getElementById('demo-otp-code').textContent = mockCode;
-    // Save locally
-    localStorage.setItem('mock_active_otp', JSON.stringify({ id: idVal, code: mockCode }));
-    logToConsole(`Backend offline. Generated local mock OTP code: ${mockCode}`, 'warn');
+    alert('Server connection timeout. Please ensure backend server is active.');
   }
 }
 
@@ -328,10 +329,18 @@ async function confirmOTP() {
   const idVal = document.getElementById('verify-identifier').value.trim();
   const codeVal = document.getElementById('verify-code').value.trim();
 
-  if (!idVal || !codeVal) return;
+  if (!idVal) {
+    alert('Please enter your phone number or email.');
+    return;
+  }
 
-  let rawName = nameVal.replace(/ Cockroach$/, '');
-  const formattedDisplayName = `${rawName} Cockroach`;
+  if (!codeVal || codeVal.length !== 6) {
+    alert('Please enter the 6-digit verification OTP code received.');
+    return;
+  }
+
+  let cleanName = nameVal.replace(/ Cockroach.*$/i, '').replace(/#.*$/, '').trim();
+  if (!cleanName) cleanName = 'Volunteer';
 
   try {
     const res = await fetch(`${BACKEND_URL}/api/verify/confirm`, {
@@ -351,34 +360,28 @@ async function confirmOTP() {
       state.userHash = data.userHash;
       state.isMedicalVerified = false;
       
-      localStorage.setItem('mab_user_identifier', formattedDisplayName);
+      // Compute unique handle format Name-Cockroach-#TAG
+      let hashNum = 0;
+      const seed = state.userHash + cleanName;
+      for (let i = 0; i < seed.length; i++) {
+        hashNum = (hashNum << 5) - hashNum + seed.charCodeAt(i);
+        hashNum = hashNum & hashNum;
+      }
+      const tag = Math.abs(hashNum).toString(16).toUpperCase().padStart(4, '0').substring(0, 4);
+      const uniqueHandle = `${cleanName}-Cockroach-#${tag}`;
+
+      localStorage.setItem('mab_user_identifier', uniqueHandle);
       saveSession();
       updateSessionBar();
       showScreen('screen-feed');
       refreshBoard();
-      logToConsole(`OTP verified. Welcome ${formattedDisplayName}! Hash: ${state.userHash}`, 'success');
+      logToConsole(`OTP verified successfully! Welcome ${uniqueHandle}. User Hash: ${state.userHash}`, 'success');
     } else {
       const err = await res.json();
-      alert(err.error);
+      alert(`⚠️ Verification Failed:\n\n${err.error}`);
     }
   } catch (e) {
-    // Offline / Cold start fallback verification confirm
-    state.sessionId = 'sess_live_' + Math.random().toString(36).substring(2, 12);
-    
-    let hash = 0;
-    for (let i = 0; i < idVal.length; i++) {
-      hash = (hash << 5) - hash + idVal.charCodeAt(i);
-      hash = hash & hash;
-    }
-    state.userHash = 'usr_' + Math.abs(hash).toString(16);
-    state.isMedicalVerified = false;
-
-    localStorage.setItem('mab_user_identifier', formattedDisplayName);
-    saveSession();
-    updateSessionBar();
-    showScreen('screen-feed');
-    refreshBoard();
-    logToConsole(`[Instant Auth] Verified as ${formattedDisplayName}! Session active.`, 'success');
+    alert('Network error during OTP confirmation. Please check server connectivity and try again.');
   }
 }
 

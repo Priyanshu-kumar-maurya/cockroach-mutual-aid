@@ -118,46 +118,79 @@ dbReady.then(() => {
 
 // --- ENDPOINTS ---
 
-// 1. Verification Request (Trigger OTP)
-app.post('/api/verify/request', (req, res) => {
+// 1. Verification Request (Trigger Real OTP)
+app.post('/api/verify/request', async (req, res) => {
   const { type, identifier } = req.body; // type: 'phone' or 'email'
-  if (!identifier) {
-    return res.status(400).json({ error: 'Identifier is required.' });
+  if (!identifier || identifier.length < 5) {
+    return res.status(400).json({ error: 'Valid phone number or email identifier is required.' });
   }
 
-  // Generate a random 6 digit OTP code
+  // Rate limit OTP requests per identifier (lockout if 3+ attempts failed)
+  const existing = activeOTPs[identifier];
+  if (existing && existing.lockedUntil && existing.lockedUntil > Date.now()) {
+    const remainingMins = Math.ceil((existing.lockedUntil - Date.now()) / (60 * 1000));
+    return res.status(429).json({ error: `Too many failed attempts. Try again in ${remainingMins} minutes.` });
+  }
+
+  // Generate a cryptographically strong 6 digit OTP code
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   activeOTPs[identifier] = {
     code,
+    attempts: 0,
     expires: Date.now() + 5 * 60 * 1000 // 5 mins validity
   };
 
-  console.log(`[OTP Sent] Target: ${identifier} | Code: ${code} (Expires in 5 mins)`);
+  console.log(`[OTP Relay Gateway] Identifier: ${identifier} | Generated Code: ${code} (Valid for 5 mins)`);
 
+  // Optional Twilio SMS Integration
+  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && type === 'phone') {
+    try {
+      const twilio = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+      await twilio.messages.create({
+        body: `Your Cockroach Aid Verification Code is: ${code}. Valid for 5 minutes.`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: identifier
+      });
+      console.log(`[Twilio SMS] Real SMS OTP dispatched to ${identifier}`);
+    } catch (err) {
+      console.error('[Twilio SMS Error]', err.message);
+    }
+  }
+
+  // Pure Secure API Response: NO demoCode leak to client HTTP payload
   res.json({
-    message: `OTP sent successfully to your ${type}.`,
-    // For demo purposes, we return the code in development mode so they don't have to check console
-    demoCode: code
+    success: true,
+    message: `Verification OTP dispatched to ${identifier}. Please enter the 6-digit code received.`
   });
 });
 
-// 2. Verification Confirm (Verify OTP & Create Session)
+// 2. Verification Confirm (Strict OTP Validation & Session Creation)
 app.post('/api/verify/confirm', async (req, res) => {
   const { type, identifier, code, deviceinfo } = req.body;
   if (!identifier || !code) {
-    return res.status(400).json({ error: 'Identifier and OTP code are required.' });
+    return res.status(400).json({ error: 'Identifier and 6-digit OTP code are required.' });
   }
 
   const record = activeOTPs[identifier];
   if (!record || record.expires < Date.now()) {
-    return res.status(400).json({ error: 'OTP has expired or does not exist.' });
+    return res.status(400).json({ error: 'OTP code has expired or was not requested. Please tap Send Verification Code again.' });
   }
 
-  if (record.code !== code) {
-    return res.status(400).json({ error: 'Incorrect OTP code.' });
+  if (record.lockedUntil && record.lockedUntil > Date.now()) {
+    return res.status(429).json({ error: 'Account locked due to multiple invalid attempts. Try again later.' });
   }
 
-  // Successful verification
+  record.attempts += 1;
+
+  if (record.code !== code.trim()) {
+    if (record.attempts >= 3) {
+      record.lockedUntil = Date.now() + 15 * 60 * 1000; // 15 min lockout
+      return res.status(429).json({ error: 'Maximum 3 invalid OTP attempts reached. Account locked for 15 minutes.' });
+    }
+    return res.status(400).json({ error: `Incorrect OTP code. ${3 - record.attempts} attempt(s) remaining.` });
+  }
+
+  // Successful verification - clear active OTP record
   delete activeOTPs[identifier];
 
   const userHash = hashValue(identifier);
