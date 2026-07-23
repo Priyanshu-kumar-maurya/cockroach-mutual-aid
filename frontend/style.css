@@ -406,8 +406,11 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  padding: 1rem;
+  padding: 1.2rem 1rem;
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 
 .verify-card:hover {
@@ -416,14 +419,26 @@ h1, h2, h3, h4, h5, h6 {
 
 .verify-card h4 {
   font-size: 0.95rem;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.2rem;
   color: var(--text-main);
 }
 
 .verify-card p {
   font-size: 0.75rem;
   color: var(--text-muted);
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.6rem;
+}
+
+.verify-card .form-group {
+  margin-bottom: 0.5rem;
+}
+
+.verify-card .btn-primary,
+.verify-card .btn-success {
+  margin-top: 0.6rem;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
 }
 
 .separator-text {
@@ -432,22 +447,25 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-muted);
   font-weight: 600;
   letter-spacing: 0.1em;
-  margin: 0.3rem 0;
+  margin: 0.5rem 0;
 }
 
 .otp-input-area {
-  margin-top: 1rem;
-  padding-top: 1rem;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
   border-top: 1px dashed var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 
-.demo-otp-note {
+.otp-status-notice {
   font-size: 0.75rem;
-  color: var(--color-warning);
-  background: hsla(37, 95%, 50%, 0.1);
-  padding: 0.4rem;
+  color: #34d399;
+  background: hsla(160, 100%, 40%, 0.1);
+  border: 1px solid hsla(160, 100%, 40%, 0.3);
+  padding: 0.5rem 0.7rem;
   border-radius: var(--radius-sm);
-  margin-bottom: 0.8rem;
   text-align: center;
 }
 
