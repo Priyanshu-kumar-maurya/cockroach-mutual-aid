@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { dbQuery, dbReady, purgeExpiredVerifications, checkPostRateLimit, processReport } = require('./database');
+const { dbQuery, dbReady, purgeExpiredVerifications, checkPostRateLimit, processReport, encryptLocation, decryptLocation, generateUniqueHandle } = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -79,10 +79,41 @@ async function authenticate(req, res, next) {
   }
 }
 
-// Run expired verification cleanup once at startup, then every hour
+// SLA Timeout Daemon (Emergency 5m, Urgent 15m, Normal 30m)
+async function checkSlaTimeouts() {
+  try {
+    const acceptedNeeds = await dbQuery.all(
+      `SELECT need_id, urgency, accepted_at FROM needs WHERE status = 'Accepted'`
+    );
+    const now = Date.now();
+    for (const need of acceptedNeeds) {
+      if (!need.accepted_at) continue;
+      const acceptedTime = new Date(need.accepted_at).getTime();
+      const elapsedMins = (now - acceptedTime) / (60 * 1000);
+      
+      let slaLimit = 30; // Normal SLA: 30m
+      if (need.urgency === 'Emergency') slaLimit = 5;
+      else if (need.urgency === 'Urgent') slaLimit = 15;
+
+      if (elapsedMins > slaLimit) {
+        await dbQuery.run(
+          `UPDATE needs SET status = 'Open', accepted_by = NULL, accepted_at = NULL WHERE need_id = ?`,
+          [need.need_id]
+        );
+        console.log(`[SLA Daemon] Post #${need.need_id} (${need.urgency}) exceeded ${slaLimit}m SLA. Reopened.`);
+      }
+    }
+  } catch (err) {
+    console.error('[SLA Timeout Error]', err.message);
+  }
+}
+
+// Run expired verification cleanup & SLA checks at startup
 dbReady.then(() => {
   purgeExpiredVerifications();
+  checkSlaTimeouts();
   setInterval(purgeExpiredVerifications, 60 * 60 * 1000);
+  setInterval(checkSlaTimeouts, 60 * 1000);
 });
 
 // --- ENDPOINTS ---
@@ -285,6 +316,9 @@ app.post('/api/needs', authenticate, async (req, res) => {
     const phoneVerified = (await dbQuery.all(`SELECT 1 FROM verifications WHERE user_hash = ? AND type = 'phone'`, [req.userHash])).length > 0 ? 1 : 0;
     const emailVerified = (await dbQuery.all(`SELECT 1 FROM verifications WHERE user_hash = ? AND type = 'email'`, [req.userHash])).length > 0 ? 1 : 0;
 
+    // Encrypt exact GPS coordinates using AES-256
+    const encryptedLocationText = encryptLocation(exact_location);
+
     await dbQuery.run(
       `INSERT INTO needs (
         need_id, category, urgency, description, photo_before, zone, exact_location,
@@ -298,7 +332,7 @@ app.post('/api/needs', authenticate, async (req, res) => {
         description,
         photo_before || null,
         zone,
-        JSON.stringify(exact_location),
+        encryptedLocationText,
         phoneVerified,
         emailVerified,
         contact_channel ? JSON.stringify(contact_channel) : null,
@@ -320,7 +354,12 @@ app.post('/api/needs', authenticate, async (req, res) => {
 
 // 8. Get Needs Feed (Strip exact locations unless caller is the accepted volunteer)
 app.get('/api/needs', async (req, res) => {
-  const sessionId = req.headers['authorization'];
+  let authHeader = req.headers['authorization'];
+  let sessionId = authHeader;
+  if (sessionId && sessionId.startsWith('Bearer ')) {
+    sessionId = sessionId.substring(7).trim();
+  }
+
   let callerUserHash = null;
 
   if (sessionId) {
@@ -334,7 +373,6 @@ app.get('/api/needs', async (req, res) => {
   }
 
   try {
-    // Select open/accepted/resolved needs that are not Hidden
     const rows = await dbQuery.all(
       `SELECT * FROM needs WHERE status != 'Hidden' ORDER BY 
         CASE urgency 
@@ -346,16 +384,11 @@ app.get('/api/needs', async (req, res) => {
         posted_at DESC`
     );
 
-    // Map rows and restrict coordinates
-    const redactedRows = rows.map(row => {
-      const need = { ...row };
+    const isGuest = !callerUserHash;
 
-      // Parse JSON columns
-      try {
-        need.exact_location = JSON.parse(need.exact_location);
-      } catch (e) {
-        need.exact_location = null;
-      }
+    // Map rows and apply redaction & AES-256 location decryption safety rules
+    const redactedRows = await Promise.all(rows.map(async row => {
+      const need = { ...row };
 
       try {
         need.contact_channel = JSON.parse(need.contact_channel);
@@ -363,24 +396,52 @@ app.get('/api/needs', async (req, res) => {
         need.contact_channel = null;
       }
 
+      // Guest Privacy Gate: If user is not authenticated, conceal zone & detailed description
+      if (isGuest) {
+        need.zone = 'Sign in to view zone';
+        need.description = '🔒 Verification required to view request details.';
+        need.photo_before = null;
+        need.exact_location = null;
+        need.contact_channel = null;
+        need.is_guest_redacted = true;
+        delete need.user_hash;
+        delete need.ip_address;
+        return need;
+      }
+
       // Redaction safety rules:
-      // Exact GPS coordinates are ONLY visible to the accepted volunteer helper
+      // Exact AES-256 GPS coordinates are ONLY unlocked & decrypted for the accepted volunteer helper or post owner
       const isAcceptedHelper = callerUserHash && need.accepted_by === callerUserHash;
       const isOwner = callerUserHash && need.user_hash === callerUserHash;
 
-      if (!isAcceptedHelper && !isOwner) {
+      if (isAcceptedHelper || isOwner) {
+        // Decrypt AES-256 ciphertext
+        need.exact_location = decryptLocation(need.exact_location);
+        
+        // Log location decryption access audit
+        if (isAcceptedHelper) {
+          const logId = 'log_' + generateId();
+          await dbQuery.run(
+            `INSERT INTO location_audit_logs (log_id, need_id, viewer_hash, viewed_at, action)
+             VALUES (?, ?, ?, ?, 'UNLOCKED_AES256_GPS_LOCATION')`,
+            [logId, need.need_id, callerUserHash, new Date().toISOString()]
+          );
+        }
+      } else {
         need.exact_location = null; // hide pin
         if (need.contact_channel) {
           need.contact_channel = { type: 'masked', message: 'Masked contact is unlocked only after acceptance' };
         }
       }
 
-      // Hide posters owner hash for security
+      // Attach Unique Handle to poster representation
+      need.poster_handle = generateUniqueHandle('Volunteer', need.user_hash);
+
       delete need.user_hash;
       delete need.ip_address;
 
       return need;
-    });
+    }));
 
     res.json(redactedRows);
   } catch (err) {

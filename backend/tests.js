@@ -126,9 +126,46 @@ async function runTests() {
     }
     console.log(`✔ 1-on-1 Direct Message verified: Sender="${dmRow.sender_name}", Receiver="${dmRow.receiver_hash}"`);
 
-    // Clean up test chat data
+    // TEST 7: AES-256 Location Encryption & Unique Handle Tagging
+    console.log('\n[TEST 7] Testing AES-256 Location Encryption & Unique Handle Tagging...');
+    const { encryptLocation, decryptLocation, generateUniqueHandle } = require('./database');
+    const rawCoords = { lat: 28.6139, lng: 77.2090 };
+    const cipherLoc = encryptLocation(rawCoords);
+
+    if (!cipherLoc || !cipherLoc.startsWith('enc:')) {
+      throw new Error('AES-256 location encryption failed.');
+    }
+    console.log(`AES-256 Encrypted Location Ciphertext: ${cipherLoc.substring(0, 30)}...`);
+
+    const decryptedLoc = decryptLocation(cipherLoc);
+    if (!decryptedLoc || decryptedLoc.lat !== 28.6139) {
+      throw new Error('AES-256 location decryption failed.');
+    }
+    console.log('✔ AES-256 GPS Location Encryption/Decryption verified.');
+
+    const uniqueHandle = generateUniqueHandle('Priyanshu', 'usr_hash_9876');
+    if (!uniqueHandle.includes('-Cockroach-#')) {
+      throw new Error('Unique handle tag generation failed.');
+    }
+    console.log(`✔ Unique Handle Generated: ${uniqueHandle}`);
+
+    // TEST 8: Location Audit Logging
+    console.log('\n[TEST 8] Testing Location Decryption Audit Logging...');
+    const auditId = 'log_test_1';
+    await dbQuery.run(
+      `INSERT INTO location_audit_logs (log_id, need_id, viewer_hash, viewed_at, action)
+       VALUES (?, 'need_test_audit', 'usr_volunteer', ?, 'UNLOCKED_AES256_GPS_LOCATION')`,
+      [auditId, new Date().toISOString()]
+    );
+
+    const auditRow = await dbQuery.get(`SELECT * FROM location_audit_logs WHERE log_id = ?`, [auditId]);
+    if (!auditRow) throw new Error('Location audit logging failed.');
+    console.log(`✔ Location Audit Log verified: Viewer="${auditRow.viewer_hash}", Action="${auditRow.action}"`);
+
+    // Clean up test data
     await dbQuery.run(`DELETE FROM public_chat WHERE chat_id = ?`, [chatId]);
     await dbQuery.run(`DELETE FROM direct_messages WHERE dm_id = ?`, [dmId]);
+    await dbQuery.run(`DELETE FROM location_audit_logs WHERE log_id = ?`, [auditId]);
 
     console.log('\n--- ALL VERIFICATION TESTS COMPLETED SUCCESSFULLY ---');
   } catch (err) {

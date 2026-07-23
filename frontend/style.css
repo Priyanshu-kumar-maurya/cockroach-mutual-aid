@@ -1724,3 +1724,107 @@ input[type="text"]:focus, select:focus, textarea:focus {
   padding: 0 0.2rem;
 }
 .dm-toast-close:hover { color: #fff; }
+
+/* Emergency Ambulance Native Dialer Button */
+.emergency-ambulance-btn {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 20px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+  animation: emergency-glow 2s infinite alternate;
+}
+.emergency-ambulance-btn:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: #fff;
+}
+
+@keyframes emergency-glow {
+  0% { box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
+  100% { box-shadow: 0 0 16px rgba(239, 68, 68, 0.8); }
+}
+
+/* Security & E2EE Inspector Trigger Button */
+.btn-security-inspect {
+  background: hsla(160, 100%, 40%, 0.15);
+  border: 1px solid hsla(160, 100%, 40%, 0.4);
+  color: #34d399;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-radius: 20px;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.2s ease;
+}
+.btn-security-inspect:hover {
+  background: hsla(160, 100%, 40%, 0.3);
+}
+
+/* Security Proof Modal Cards */
+.security-modal-card {
+  max-width: 400px;
+}
+
+.security-proof-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  font-size: 0.8rem;
+}
+
+.proof-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px dashed var(--border-color);
+}
+.proof-row code {
+  background: var(--bg-card);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: var(--color-primary);
+}
+
+.raw-ciphertext-box {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.raw-ciphertext-box label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+.raw-ciphertext-box pre {
+  background: #090d16;
+  border: 1px solid var(--border-color);
+  padding: 0.5rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  color: #34d399;
+  overflow-x: auto;
+}
+
+/* Unique Handle Tag Badges */
+.handle-tag-badge {
+  font-family: monospace;
+  font-size: 0.7rem;
+  color: var(--color-primary);
+  background: hsla(210, 100%, 55%, 0.12);
+  border: 1px solid hsla(210, 100%, 55%, 0.3);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  margin-left: 0.3rem;
+}

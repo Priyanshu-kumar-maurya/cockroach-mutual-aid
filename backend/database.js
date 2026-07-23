@@ -186,6 +186,17 @@ function initializeSchemaSQLite() {
         created_at TEXT NOT NULL,
         is_read INTEGER DEFAULT 0
       )
+    `);
+
+    // Location Audit Logs (Tracks who viewed exact GPS pin & when)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS location_audit_logs (
+        log_id TEXT PRIMARY KEY,
+        need_id TEXT NOT NULL,
+        viewer_hash TEXT NOT NULL,
+        viewed_at TEXT NOT NULL,
+        action TEXT NOT NULL
+      )
     `, () => {
       console.log('SQLite Database tables initialized successfully.');
       dbReadyResolve();
@@ -283,6 +294,16 @@ async function initializeSchemaPG() {
         message TEXT NOT NULL,
         created_at TEXT NOT NULL,
         is_read INTEGER DEFAULT 0
+      )
+    `);
+
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS location_audit_logs (
+        log_id TEXT PRIMARY KEY,
+        need_id TEXT NOT NULL,
+        viewer_hash TEXT NOT NULL,
+        viewed_at TEXT NOT NULL,
+        action TEXT NOT NULL
       )
     `);
 
@@ -390,11 +411,68 @@ async function processReport(needId, reporterHash, reason, ipAddress) {
   return { score: totalScore, hidden: false };
 }
 
+// --- AES-256 LOCATION ENCRYPTION & UNIQUE HANDLE HELPERS ---
+const crypto = require('crypto');
+const AES_SECRET_KEY = process.env.LOCATION_AES_KEY || 'cockroach-mutual-aid-aes-key-32b!';
+const AES_KEY_BUF = crypto.createHash('sha256').update(AES_SECRET_KEY).digest();
+
+function encryptLocation(locationObj) {
+  if (!locationObj) return null;
+  const text = typeof locationObj === 'string' ? locationObj : JSON.stringify(locationObj);
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv('aes-256-cbc', AES_KEY_BUF, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return `enc:${iv.toString('hex')}:${encrypted}`;
+}
+
+function decryptLocation(cipherText) {
+  if (!cipherText || typeof cipherText !== 'string' || !cipherText.startsWith('enc:')) {
+    try {
+      return typeof cipherText === 'string' ? JSON.parse(cipherText) : cipherText;
+    } catch (e) {
+      return cipherText;
+    }
+  }
+  try {
+    const parts = cipherText.split(':');
+    const iv = Buffer.from(parts[1], 'hex');
+    const encryptedText = parts[2];
+    const decipher = crypto.createDecipheriv('aes-256-cbc', AES_KEY_BUF, iv);
+    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    try {
+      return JSON.parse(decrypted);
+    } catch (e) {
+      return decrypted;
+    }
+  } catch (err) {
+    console.error('Location decryption failure:', err.message);
+    return null;
+  }
+}
+
+function generateUniqueHandle(rawName, userHash) {
+  let cleanName = (rawName || 'Volunteer').trim().replace(/ Cockroach.*$/i, '').replace(/#.*$/, '').trim();
+  if (!cleanName) cleanName = 'Volunteer';
+  let hashNum = 0;
+  const seed = (userHash || 'anon_seed') + cleanName;
+  for (let i = 0; i < seed.length; i++) {
+    hashNum = (hashNum << 5) - hashNum + seed.charCodeAt(i);
+    hashNum = hashNum & hashNum;
+  }
+  const tag = Math.abs(hashNum).toString(16).toUpperCase().padStart(4, '0').substring(0, 4);
+  return `${cleanName}-Cockroach-#${tag}`;
+}
+
 module.exports = {
   db,
   dbQuery,
   dbReady,
   purgeExpiredVerifications,
   checkPostRateLimit,
-  processReport
+  processReport,
+  encryptLocation,
+  decryptLocation,
+  generateUniqueHandle
 };

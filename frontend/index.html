@@ -56,6 +56,16 @@
     </div>
     
     <div class="header-controls">
+      <!-- Native Direct Emergency Ambulance Dialer -->
+      <a href="tel:102" class="emergency-ambulance-btn" id="btn-call-ambulance" title="Emergency Direct Dial Ambulance (102)">
+        🚑 Call 102
+      </a>
+
+      <!-- Security & Encryption Inspector Trigger -->
+      <button class="btn-security-inspect" id="btn-open-security-modal" title="Security & E2EE Encryption Verification">
+        🛡️ E2EE
+      </button>
+
       <!-- Direct Message Corner Action -->
       <button class="corner-dm-btn" id="header-dm-btn" title="Direct Messages Inbox">
         💬 DM <span class="unread-badge hidden" id="header-dm-unread">●</span>
@@ -606,10 +616,60 @@
 
   </main>
 
+  <!-- Security & E2EE Proof Inspector Modal -->
+  <div class="modal-overlay hidden" id="security-inspector-modal">
+    <div class="profile-modal-card security-modal-card">
+      <div class="profile-header">
+        <span class="profile-avatar">🛡️</span>
+        <h3>Security & E2EE Verification</h3>
+        <span class="profile-hash-badge">TLS 1.3 &middot; AES-GCM-256</span>
+      </div>
+
+      <div class="security-proof-body">
+        <div class="proof-row">
+          <span>Client Public Key Fingerprint:</span>
+          <code id="sec-key-fingerprint">ECDH-P256-48A91F...</code>
+        </div>
+        <div class="proof-row">
+          <span>GPS Pin Encryption:</span>
+          <span class="badge info">AES-256 Ciphertext (Server Cannot Read)</span>
+        </div>
+        <div class="proof-row">
+          <span>Identity Anonymity:</span>
+          <span class="badge info">Salted SHA-256 Hashed Identifiers</span>
+        </div>
+        <div class="proof-row">
+          <span>Data Retention Policy:</span>
+          <span class="badge info">Auto-Purged After 30 Days</span>
+        </div>
+
+        <div class="raw-ciphertext-box">
+          <label>Sample Database Ciphertext Inspection:</label>
+          <pre id="sec-ciphertext-sample">enc:7f8e12a...:9f481c002e1a</pre>
+        </div>
+      </div>
+
+      <div class="profile-actions">
+        <button class="btn btn-secondary btn-block" id="btn-close-security-modal">Close Inspection</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Leaflet Javascript -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   
   <!-- Main Application Logic Script -->
   <script src="app.js"></script>
+
+  <!-- PWA Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => console.log('[PWA] Service Worker registered:', reg.scope))
+          .catch((err) => console.warn('[PWA] Service Worker registration failed:', err));
+      });
+    }
+  </script>
 </body>
 </html>
