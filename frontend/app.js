@@ -135,11 +135,15 @@ function initUI() {
     }
   });
 
+  // Direct Member Login Actions
+  document.getElementById('btn-direct-login')?.addEventListener('click', directPasswordLogin);
+  document.getElementById('btn-goto-register')?.addEventListener('click', () => showScreen('screen-verify'));
+  document.getElementById('btn-back-register-to-login')?.addEventListener('click', () => showScreen('screen-login'));
+
   // Verification actions
   document.getElementById('btn-request-otp').addEventListener('click', requestOTP);
   document.getElementById('btn-confirm-otp').addEventListener('click', confirmOTP);
   document.getElementById('btn-confirm-proxy').addEventListener('click', confirmProxy);
-  document.getElementById('btn-login-password')?.addEventListener('click', loginWithPassword);
 
   // Login Mode Tabs Switcher
   document.getElementById('tab-login-otp-mode')?.addEventListener('click', () => {
@@ -522,6 +526,43 @@ function updateSessionBar() {
   }
 }
 
+async function directPasswordLogin() {
+  const idVal = document.getElementById('direct-login-identifier')?.value.trim();
+  const passVal = document.getElementById('direct-login-password')?.value.trim();
+
+  if (!idVal || !passVal) {
+    alert('Please enter both your phone/email and password.');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/login/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier: idVal, password: passVal })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      state.sessionId = data.sessionId;
+      state.userHash = data.userHash;
+      
+      const fullHandle = data.handle || (data.displayName + '-Cockroach-#A1K2');
+      localStorage.setItem('mab_session_id', data.sessionId);
+      localStorage.setItem('mab_user_hash', data.userHash);
+      localStorage.setItem('mab_handle', fullHandle);
+
+      updateSessionUI(fullHandle);
+      showScreen('screen-feed');
+      alert(`✅ Welcome back, ${fullHandle}!`);
+    } else {
+      alert(data.error || 'Login failed. Please check your details or register via SMS OTP.');
+    }
+  } catch (e) {
+    alert('Server connection timeout. Please check your internet connection.');
+  }
+}
+
 async function logout() {
   try {
     await fetch(`${BACKEND_URL}/api/session/logout`, {
@@ -531,7 +572,7 @@ async function logout() {
   } catch (e) {}
 
   clearSession();
-  showScreen('screen-verify');
+  showScreen('screen-login');
   logToConsole('Session closed. Local cache authorization credentials cleared.', 'info');
 }
 
