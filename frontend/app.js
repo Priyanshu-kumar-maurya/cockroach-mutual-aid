@@ -5,6 +5,18 @@
 
 const BACKEND_URL = 'https://cockroach-mutual-aid-backend.onrender.com';
 
+// Purge legacy Service Worker caches on startup to force fresh production HTML load
+if ('caches' in window) {
+  caches.keys().then((names) => {
+    names.forEach((name) => {
+      if (name !== 'mutual-aid-board-v3-production-otp') {
+        console.log('[PWA Purge] Deleting legacy cache:', name);
+        caches.delete(name);
+      }
+    });
+  });
+}
+
 // Global Application State
 let state = {
   sessionId: localStorage.getItem('mab_session_id') || null,
