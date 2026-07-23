@@ -188,6 +188,18 @@ function initializeSchemaSQLite() {
       )
     `);
 
+    // Registered Users Table (Persistent Passwords & Unique Handles)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS users (
+        user_hash TEXT PRIMARY KEY,
+        identifier TEXT UNIQUE NOT NULL,
+        display_name TEXT NOT NULL,
+        unique_handle TEXT UNIQUE NOT NULL,
+        password_hash TEXT,
+        created_at TEXT NOT NULL
+      )
+    `);
+
     // Location Audit Logs (Tracks who viewed exact GPS pin & when)
     db.run(`
       CREATE TABLE IF NOT EXISTS location_audit_logs (

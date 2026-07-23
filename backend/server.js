@@ -51,16 +51,16 @@ async function authenticate(req, res, next) {
       return res.status(401).json({ error: 'Session expired or invalid.' });
     }
 
-    // Auto-logout after 15 minutes of inactivity
+    // Session validity: 30 days persistent login
     const now = new Date();
     const lastActive = new Date(session.last_active_at);
     const diffMs = now - lastActive;
-    if (diffMs > 15 * 60 * 1000) {
+    if (diffMs > 30 * 24 * 60 * 60 * 1000) {
       await dbQuery.run(
         `UPDATE sessions SET is_active = 0 WHERE session_id = ?`,
         [sessionId]
       );
-      return res.status(401).json({ error: 'Session expired due to inactivity (15 mins).' });
+      return res.status(401).json({ error: 'Session expired after 30 days. Please log in again.' });
     }
 
     // Update last active time
@@ -184,9 +184,9 @@ app.post('/api/verify/request', async (req, res) => {
   });
 });
 
-// 2. Verification Confirm (Strict OTP Validation & Session Creation)
+// 2. Verification Confirm (Strict OTP Validation, User Registration & Session Creation)
 app.post('/api/verify/confirm', async (req, res) => {
-  const { type, identifier, code, deviceinfo } = req.body;
+  const { type, identifier, code, deviceinfo, password, displayName } = req.body;
   if (!identifier || !code) {
     return res.status(400).json({ error: 'Identifier and 6-digit OTP code are required.' });
   }
@@ -226,7 +226,31 @@ app.post('/api/verify/confirm', async (req, res) => {
   }
 
   try {
-    // Record verification (auto-deletes in 30 days)
+    const bcrypt = require('bcryptjs');
+    const nameToUse = displayName || 'Volunteer';
+    const uniqueHandle = generateUniqueHandle(nameToUse, userHash);
+
+    // Save or Update User in database
+    const existingUser = await dbQuery.get(`SELECT * FROM users WHERE user_hash = ? OR identifier = ?`, [userHash, identifier]);
+    let passwordHash = existingUser ? existingUser.password_hash : null;
+    if (password && password.length >= 4) {
+      passwordHash = bcrypt.hashSync(password, 10);
+    }
+
+    if (existingUser) {
+      await dbQuery.run(
+        `UPDATE users SET password_hash = COALESCE(?, password_hash), display_name = ?, unique_handle = ? WHERE user_hash = ?`,
+        [passwordHash, nameToUse, uniqueHandle, userHash]
+      );
+    } else {
+      await dbQuery.run(
+        `INSERT INTO users (user_hash, identifier, display_name, unique_handle, password_hash, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [userHash, identifier, nameToUse, uniqueHandle, passwordHash, now]
+      );
+    }
+
+    // Record verification
     const verificationId = generateId();
     await dbQuery.run(
       `INSERT INTO verifications (verification_id, user_hash, type, masked_identifier, created_at)
@@ -234,7 +258,7 @@ app.post('/api/verify/confirm', async (req, res) => {
       [verificationId, userHash, type, masked, now]
     );
 
-    // Create session
+    // Create session (30 days persistent)
     const sessionId = 'sess_' + generateId();
     await dbQuery.run(
       `INSERT INTO sessions (session_id, user_hash, device_info, is_active, created_at, last_active_at)
@@ -246,11 +270,64 @@ app.post('/api/verify/confirm', async (req, res) => {
       message: 'Verification successful.',
       sessionId,
       userHash,
+      handle: uniqueHandle,
+      displayName: nameToUse,
       type
     });
   } catch (err) {
     console.error('Confirm verification error:', err);
     res.status(500).json({ error: 'Database verification failure.' });
+  }
+});
+
+// 2.5 Direct Password Login (Skip OTP for returning users)
+app.post('/api/login/password', async (req, res) => {
+  let { identifier, password } = req.body;
+  if (!identifier || !password) {
+    return res.status(400).json({ error: 'Phone/Email identifier and password are required.' });
+  }
+
+  identifier = identifier.trim();
+  let altIdentifier = identifier;
+  if (!identifier.startsWith('+') && /^\d{10}$/.test(identifier)) {
+    altIdentifier = '+91' + identifier;
+  }
+
+  try {
+    const bcrypt = require('bcryptjs');
+    const user = await dbQuery.get(
+      `SELECT * FROM users WHERE identifier = ? OR identifier = ? OR user_hash = ?`,
+      [identifier, altIdentifier, hashValue(identifier)]
+    );
+
+    if (!user || !user.password_hash) {
+      return res.status(400).json({ error: 'No password found for this account. Please sign in via SMS OTP first and set a password.' });
+    }
+
+    const match = bcrypt.compareSync(password, user.password_hash);
+    if (!match) {
+      return res.status(401).json({ error: 'Incorrect password. Please try again.' });
+    }
+
+    const sessionId = 'sess_' + generateId();
+    const now = new Date().toISOString();
+    await dbQuery.run(
+      `INSERT INTO sessions (session_id, user_hash, device_info, is_active, created_at, last_active_at)
+       VALUES (?, ?, ?, 1, ?, ?)`,
+      [sessionId, user.user_hash, 'Web Client Password Login', now, now]
+    );
+
+    res.json({
+      success: true,
+      message: 'Password login successful.',
+      sessionId,
+      userHash: user.user_hash,
+      handle: user.unique_handle,
+      displayName: user.display_name
+    });
+  } catch (err) {
+    console.error('Password login error:', err);
+    res.status(500).json({ error: 'Password authentication failed.' });
   }
 });
 

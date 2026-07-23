@@ -139,6 +139,22 @@ function initUI() {
   document.getElementById('btn-request-otp').addEventListener('click', requestOTP);
   document.getElementById('btn-confirm-otp').addEventListener('click', confirmOTP);
   document.getElementById('btn-confirm-proxy').addEventListener('click', confirmProxy);
+  document.getElementById('btn-login-password')?.addEventListener('click', loginWithPassword);
+
+  // Login Mode Tabs Switcher
+  document.getElementById('tab-login-otp-mode')?.addEventListener('click', () => {
+    document.getElementById('tab-login-otp-mode').classList.add('active');
+    document.getElementById('tab-login-password-mode').classList.remove('active');
+    document.getElementById('method-otp').classList.remove('hidden');
+    document.getElementById('method-password').classList.add('hidden');
+  });
+
+  document.getElementById('tab-login-password-mode')?.addEventListener('click', () => {
+    document.getElementById('tab-login-password-mode').classList.add('active');
+    document.getElementById('tab-login-otp-mode').classList.remove('active');
+    document.getElementById('method-password').classList.remove('hidden');
+    document.getElementById('method-otp').classList.add('hidden');
+  });
 
   // Authentication Quick actions
   document.getElementById('kill-sessions-btn')?.addEventListener('click', killRemoteSessions);
@@ -354,6 +370,8 @@ async function confirmOTP() {
   let cleanName = nameVal.replace(/ Cockroach.*$/i, '').replace(/#.*$/, '').trim();
   if (!cleanName) cleanName = 'Volunteer';
 
+  const createPass = document.getElementById('verify-create-password')?.value.trim() || '';
+
   try {
     const res = await fetch(`${BACKEND_URL}/api/verify/confirm`, {
       method: 'POST',
@@ -362,6 +380,8 @@ async function confirmOTP() {
         type: idVal.includes('@') ? 'email' : 'phone',
         identifier: idVal,
         code: codeVal,
+        password: createPass,
+        displayName: cleanName,
         deviceinfo: navigator.userAgent
       })
     });
@@ -394,6 +414,43 @@ async function confirmOTP() {
     }
   } catch (e) {
     alert('Network error during OTP confirmation. Please check server connectivity and try again.');
+  }
+}
+
+async function loginWithPassword() {
+  const idVal = document.getElementById('login-password-identifier')?.value.trim();
+  const passVal = document.getElementById('login-password-input')?.value.trim();
+
+  if (!idVal || !passVal) {
+    alert('Please enter both your registered phone/email and account password.');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/login/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier: idVal, password: passVal })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      state.sessionId = data.sessionId;
+      state.userHash = data.userHash;
+      
+      const fullHandle = data.handle || 'Cockroach User';
+      localStorage.setItem('mab_session_id', data.sessionId);
+      localStorage.setItem('mab_user_hash', data.userHash);
+      localStorage.setItem('mab_handle', fullHandle);
+
+      updateSessionUI(fullHandle);
+      showScreen('screen-feed');
+      alert(`✅ Welcome back, ${fullHandle}! Logged in via Password.`);
+    } else {
+      alert(data.error || 'Password login failed.');
+    }
+  } catch (e) {
+    alert('Server connection timeout. Please check your internet connection.');
   }
 }
 
