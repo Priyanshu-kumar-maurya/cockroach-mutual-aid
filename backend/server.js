@@ -120,13 +120,25 @@ dbReady.then(() => {
 
 // 1. Verification Request (Trigger Real OTP)
 app.post('/api/verify/request', async (req, res) => {
-  const { type, identifier } = req.body; // type: 'phone' or 'email'
+  let { type, identifier } = req.body; // type: 'phone' or 'email'
   if (!identifier || identifier.length < 5) {
     return res.status(400).json({ error: 'Valid phone number or email identifier is required.' });
   }
 
+  identifier = identifier.trim();
+
+  // Auto-format phone numbers to E.164 (+91 for 10-digit Indian numbers)
+  let twilioPhoneTarget = identifier;
+  if (type === 'phone' && !identifier.startsWith('+')) {
+    if (/^\d{10}$/.test(identifier)) {
+      twilioPhoneTarget = '+91' + identifier;
+    } else if (/^\d+$/.test(identifier)) {
+      twilioPhoneTarget = '+' + identifier;
+    }
+  }
+
   // Rate limit OTP requests per identifier (lockout if 3+ attempts failed)
-  const existing = activeOTPs[identifier];
+  const existing = activeOTPs[identifier] || activeOTPs[twilioPhoneTarget];
   if (existing && existing.lockedUntil && existing.lockedUntil > Date.now()) {
     const remainingMins = Math.ceil((existing.lockedUntil - Date.now()) / (60 * 1000));
     return res.status(429).json({ error: `Too many failed attempts. Try again in ${remainingMins} minutes.` });
@@ -134,33 +146,41 @@ app.post('/api/verify/request', async (req, res) => {
 
   // Generate a cryptographically strong 6 digit OTP code
   const code = Math.floor(100000 + Math.random() * 900000).toString();
-  activeOTPs[identifier] = {
+  const otpRecord = {
     code,
     attempts: 0,
     expires: Date.now() + 5 * 60 * 1000 // 5 mins validity
   };
 
-  console.log(`[OTP Relay Gateway] Identifier: ${identifier} | Generated Code: ${code} (Valid for 5 mins)`);
+  activeOTPs[identifier] = otpRecord;
+  activeOTPs[twilioPhoneTarget] = otpRecord;
 
-  // Optional Twilio SMS Integration
+  console.log(`[OTP Relay Gateway] Target: ${twilioPhoneTarget} | Generated Code: ${code} (Valid for 5 mins)`);
+
+  // Twilio SMS Integration
+  let smsSent = false;
+  let twilioErrorMessage = null;
   if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && type === 'phone') {
     try {
       const twilio = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
       await twilio.messages.create({
         body: `Your Cockroach Aid Verification Code is: ${code}. Valid for 5 minutes.`,
         from: process.env.TWILIO_PHONE_NUMBER,
-        to: identifier
+        to: twilioPhoneTarget
       });
-      console.log(`[Twilio SMS] Real SMS OTP dispatched to ${identifier}`);
+      smsSent = true;
+      console.log(`[Twilio SMS] Real SMS OTP dispatched to ${twilioPhoneTarget}`);
     } catch (err) {
+      twilioErrorMessage = err.message;
       console.error('[Twilio SMS Error]', err.message);
     }
   }
 
-  // Pure Secure API Response: NO demoCode leak to client HTTP payload
   res.json({
     success: true,
-    message: `Verification OTP dispatched to ${identifier}. Please enter the 6-digit code received.`
+    message: smsSent 
+      ? `Real SMS OTP dispatched to ${twilioPhoneTarget}. Please enter the 6-digit code received on your phone.`
+      : (twilioErrorMessage ? `Twilio Notice: ${twilioErrorMessage}` : `Verification OTP dispatched to ${twilioPhoneTarget}. Please enter the 6-digit code.`)
   });
 });
 

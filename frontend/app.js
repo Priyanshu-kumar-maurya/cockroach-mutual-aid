@@ -141,8 +141,8 @@ function initUI() {
   document.getElementById('btn-confirm-proxy').addEventListener('click', confirmProxy);
 
   // Authentication Quick actions
-  document.getElementById('kill-sessions-btn').addEventListener('click', killRemoteSessions);
-  document.getElementById('logout-btn').addEventListener('click', logout);
+  document.getElementById('kill-sessions-btn')?.addEventListener('click', killRemoteSessions);
+  document.getElementById('logout-btn')?.addEventListener('click', logout);
 
   // Post need submit
   document.getElementById('btn-submit-need').addEventListener('click', submitNeed);
