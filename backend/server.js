@@ -437,70 +437,6 @@ app.post('/api/verify/confirm', validate([
   }
 });
 
-// 2.5 Direct Password Login (Skip OTP for returning users - Validated & JWT Issuance)
-app.post('/api/login/password', validate([
-  body('identifier').trim().notEmpty().withMessage('Phone or email identifier is required.'),
-  body('password').trim().notEmpty().withMessage('Password is required.')
-]), async (req, res) => {
-  let { identifier, password } = req.body;
-
-  identifier = identifier.trim();
-  let twilioTarget = identifier;
-  if (!identifier.startsWith('+')) {
-    if (/^\d{10}$/.test(identifier)) {
-      twilioTarget = '+91' + identifier;
-    } else if (/^\d+$/.test(identifier)) {
-      twilioTarget = '+' + identifier;
-    }
-  }
-
-  try {
-    const bcrypt = require('bcryptjs');
-    const user = await dbQuery.get(
-      `SELECT * FROM users WHERE identifier = ? OR identifier = ? OR user_hash = ? OR user_hash = ?`,
-      [identifier, twilioTarget, hashValue(identifier), hashValue(twilioTarget)]
-    );
-
-    if (!user || !user.password_hash) {
-      return res.status(400).json({ error: 'No password set for this account yet. Please register via SMS OTP first and set a password.' });
-    }
-
-    const match = bcrypt.compareSync(password, user.password_hash);
-    if (!match) {
-      return res.status(401).json({ error: 'Incorrect password. Please check your credentials.' });
-    }
-
-    const tokens = issueTokens(user.user_hash, user.unique_handle);
-    const now = new Date().toISOString();
-    await dbQuery.run(
-      `INSERT INTO sessions (session_id, user_hash, device_info, is_active, created_at, last_active_at)
-       VALUES (?, ?, ?, 1, ?, ?)`,
-      [tokens.accessToken, user.user_hash, 'Web Client Password Login', now, now]
-    );
-
-    res.cookie('accessToken', tokens.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000
-    });
-
-    res.json({
-      success: true,
-      message: 'Password login successful.',
-      sessionId: tokens.accessToken,
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      userHash: user.user_hash,
-      handle: user.unique_handle,
-      displayName: user.display_name
-    });
-  } catch (err) {
-    console.error('Password login error:', err);
-    res.status(500).json({ error: 'Password authentication failed.' });
-  }
-});
-
 // 3. Coordinator Proxy Verification
 app.post('/api/verify/coordinator-proxy', async (req, res) => {
   const { proxyName, deviceinfo } = req.body;
@@ -773,15 +709,18 @@ app.post('/api/needs/:id/accept', authenticate, async (req, res) => {
       return res.status(400).json({ error: `Cannot accept this post. Current status: ${need.status}` });
     }
 
-    // Medical routing verification: Route only to verified helpers
-    if (need.category === 'Medical') {
+    // Require verified helper status for Medical & Emergency requests
+    if (need.category === 'Medical' || need.urgency === 'Emergency') {
       const helper = await dbQuery.get(
         `SELECT is_medical_verified FROM helpers WHERE helper_hash = ?`,
         [req.userHash]
       );
-      if (!helper || helper.is_medical_verified !== 1) {
+      const verifications = await dbQuery.all(`SELECT 1 FROM verifications WHERE user_hash = ?`, [req.userHash]);
+      const hasBadge = (helper && helper.is_medical_verified === 1) || (verifications && verifications.length > 0);
+      
+      if (!hasBadge) {
         return res.status(403).json({
-          error: 'Medical requests require on-ground coordinator verification. Please register first-aid proof first.'
+          error: 'Verified Helper Badge Required: Medical and Emergency requests can only be accepted by verified responders.'
         });
       }
     }

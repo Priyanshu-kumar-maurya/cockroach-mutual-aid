@@ -229,10 +229,24 @@
         const data = await res.json();
         if (res.ok) {
           document.getElementById('otp-section').classList.remove('hidden');
-          document.getElementById('otp-notice-msg').textContent = '📩 ' + data.message;
-          alert('Verification code sent!');
+          const noticeMsg = document.getElementById('otp-notice-msg');
+          if (noticeMsg) noticeMsg.innerHTML = `<i class="fa-solid fa-envelope"></i> ${data.message || 'Verification code sent.'}`;
+
+          // Start 60s Resend Cooldown Timer
+          const btnReq = document.getElementById('btn-request-otp');
+          btnReq.disabled = true;
+          let countdown = 60;
+          const timerInterval = setInterval(() => {
+            countdown--;
+            btnReq.innerText = `Resend Code (${countdown}s)`;
+            if (countdown <= 0) {
+              clearInterval(timerInterval);
+              btnReq.disabled = false;
+              btnReq.innerText = 'Send Verification Code';
+            }
+          }, 1000);
         } else {
-          alert(data.error || 'Failed to send OTP.');
+          alert(data.error || 'Failed to send OTP code.');
         }
       } catch (e) {
         alert('Server connection timeout. Please check your network.');

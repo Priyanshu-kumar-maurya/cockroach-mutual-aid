@@ -4,6 +4,7 @@
    ========================================================================== */
 
 const BACKEND_URL = 'https://cockroach-mutual-aid-backend.onrender.com';
+const IS_PRODUCTION = true; // Disables silent mock data fallback in production
 
 // Purge legacy Service Worker caches on startup to force fresh production HTML load
 if ('caches' in window) {

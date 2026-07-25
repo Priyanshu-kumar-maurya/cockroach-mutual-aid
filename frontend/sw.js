@@ -3,7 +3,7 @@
    Provides offline asset caching, network fallback, and offline sync support.
    ========================================================================== */
 
-const CACHE_NAME = 'mutual-aid-board-v16-glassmorphism-auth-modal';
+const CACHE_NAME = 'mutual-aid-board-v17-ultimatum-fixes';
 const ASSETS = [
   './',
   './index.html',
