@@ -44,7 +44,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
   <!-- Vanilla CSS Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=5.0">
+  <link rel="stylesheet" href="style.css?v=6.0">
 </head>
 <body>
   
@@ -717,6 +717,22 @@
 
       <div class="profile-actions">
         <button class="btn btn-secondary btn-block" id="btn-close-security-modal">Close Inspection</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Modern Glassmorphism Auth Warning Modal -->
+  <div class="custom-modal-overlay hidden" id="custom-auth-modal">
+    <div class="custom-modal-card">
+      <div class="custom-modal-icon">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h3 class="custom-modal-title">Sign In Required</h3>
+      <p class="custom-modal-message" id="custom-auth-msg">You must be signed in to perform this action.</p>
+      <div class="custom-modal-actions">
+        <a href="login.html" class="btn-modal-primary"><i class="fa-solid fa-right-to-bracket"></i> Sign In Now</a>
+        <a href="register.html" class="btn-modal-secondary"><i class="fa-solid fa-user-plus"></i> Create Account</a>
+        <button class="btn-modal-close" onclick="closeAuthWarningModal()">Cancel & Close</button>
       </div>
     </div>
   </div>

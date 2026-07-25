@@ -1515,16 +1515,28 @@ mockDatabase.dms = [];
 
 let chatPollInterval = null;
 
-// Require authentication check
+// Require authentication check (Custom Glassmorphism Modal Overlay)
 function requireAuthAction(actionName, callback) {
   if (!state.sessionId || !state.userHash) {
-    alert(`🔒 Login Required!\n\nYou must be signed in to ${actionName}. Redirecting to Login page...`);
-    window.location.href = 'login.html';
+    showAuthWarningModal(actionName);
     return false;
   }
   if (callback) callback();
   return true;
 }
+
+window.showAuthWarningModal = (actionName) => {
+  const modal = document.getElementById('custom-auth-modal');
+  const msgEl = document.getElementById('custom-auth-msg');
+  if (msgEl) {
+    msgEl.innerText = `You must be signed in to ${actionName || 'access this section'}. Sign in or create an account to start messaging.`;
+  }
+  modal?.classList.remove('hidden');
+};
+
+window.closeAuthWarningModal = () => {
+  document.getElementById('custom-auth-modal')?.classList.add('hidden');
+};
 
 // Navigation to Public Chat & Corner DM
 document.getElementById('tab-public-chat-view')?.addEventListener('click', () => {
