@@ -3,7 +3,7 @@
    Provides offline asset caching, network fallback, and offline sync support.
    ========================================================================== */
 
-const CACHE_NAME = 'mutual-aid-board-v11-service-worker-cache-clear';
+const CACHE_NAME = 'mutual-aid-board-v12-navigation-redirect-fix';
 const ASSETS = [
   './',
   './index.html',
@@ -60,6 +60,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Navigation requests: Handle redirects safely to prevent Chrome ERR_FAILED redirect mode errors
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        if (response.redirected) {
+          return fetch(response.url);
+        }
+        return response;
+      }).catch(() => {
+        return caches.match('./index.html') || caches.match('./login.html');
+      })
+    );
+    return;
+  }
+
   // Static Assets: Cache first, fallback to network
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
@@ -67,7 +82,6 @@ self.addEventListener('fetch', (event) => {
         return cachedResponse;
       }
       return fetch(event.request).then((response) => {
-        // Cache valid static responses dynamically
         if (response && response.status === 200 && response.type === 'basic') {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
