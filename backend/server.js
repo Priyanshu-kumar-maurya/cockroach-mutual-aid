@@ -249,7 +249,16 @@ app.post('/api/verify/confirm', async (req, res) => {
     return res.status(400).json({ error: 'Identifier and 6-digit OTP code are required.' });
   }
 
-  const record = activeOTPs[identifier];
+  let twilioPhoneTarget = identifier;
+  if (!identifier.startsWith('+')) {
+    if (/^\d{10}$/.test(identifier)) {
+      twilioPhoneTarget = '+91' + identifier;
+    } else if (/^\d+$/.test(identifier)) {
+      twilioPhoneTarget = '+' + identifier;
+    }
+  }
+
+  const record = activeOTPs[identifier] || activeOTPs[twilioPhoneTarget];
   if (!record || record.expires < Date.now()) {
     return res.status(400).json({ error: 'OTP code has expired or was not requested. Please tap Send Verification Code again.' });
   }
@@ -268,8 +277,9 @@ app.post('/api/verify/confirm', async (req, res) => {
     return res.status(400).json({ error: `Incorrect OTP code. ${3 - record.attempts} attempt(s) remaining.` });
   }
 
-  // Successful verification - clear active OTP record
+  // Successful verification - clear active OTP records
   delete activeOTPs[identifier];
+  delete activeOTPs[twilioPhoneTarget];
 
   const userHash = hashValue(identifier);
   const now = new Date().toISOString();
@@ -289,7 +299,7 @@ app.post('/api/verify/confirm', async (req, res) => {
     const uniqueHandle = generateUniqueHandle(nameToUse, userHash);
 
     // Save or Update User in database
-    const existingUser = await dbQuery.get(`SELECT * FROM users WHERE user_hash = ? OR identifier = ?`, [userHash, identifier]);
+    const existingUser = await dbQuery.get(`SELECT * FROM users WHERE user_hash = ? OR identifier = ? OR identifier = ?`, [userHash, identifier, twilioPhoneTarget]);
     let passwordHash = existingUser ? existingUser.password_hash : null;
     if (password && password.length >= 4) {
       passwordHash = bcrypt.hashSync(password, 10);
@@ -298,7 +308,7 @@ app.post('/api/verify/confirm', async (req, res) => {
     if (existingUser) {
       await dbQuery.run(
         `UPDATE users SET password_hash = COALESCE(?, password_hash), display_name = ?, unique_handle = ? WHERE user_hash = ?`,
-        [passwordHash, nameToUse, uniqueHandle, userHash]
+        [passwordHash, nameToUse, uniqueHandle, existingUser.user_hash]
       );
     } else {
       await dbQuery.run(
@@ -334,7 +344,7 @@ app.post('/api/verify/confirm', async (req, res) => {
     });
   } catch (err) {
     console.error('Confirm verification error:', err);
-    res.status(500).json({ error: 'Database verification failure.' });
+    res.status(500).json({ error: `Verification failure: ${err.message}` });
   }
 });
 

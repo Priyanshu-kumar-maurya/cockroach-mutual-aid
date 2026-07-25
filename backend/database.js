@@ -310,6 +310,17 @@ async function initializeSchemaPG() {
     `);
 
     await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        user_hash TEXT PRIMARY KEY,
+        identifier TEXT UNIQUE NOT NULL,
+        display_name TEXT NOT NULL,
+        unique_handle TEXT UNIQUE NOT NULL,
+        password_hash TEXT,
+        created_at TEXT NOT NULL
+      )
+    `);
+
+    await pgPool.query(`
       CREATE TABLE IF NOT EXISTS location_audit_logs (
         log_id TEXT PRIMARY KEY,
         need_id TEXT NOT NULL,
