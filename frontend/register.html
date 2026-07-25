@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - Cockroach Mutual Aid Board</title>
+  <meta name="description" content="Register and verify your account on Cockroach Mutual Aid Board.">
+  
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css?v=3.0">
+  <style>
+    body {
+      background-color: #080a0e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      color: #f1f5f9;
+    }
+    .register-container {
+      width: 100%;
+      max-width: 420px;
+      padding: 1.5rem;
+      box-sizing: border-box;
+    }
+    .brand-header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    .brand-logo {
+      font-size: 2.3rem;
+      margin-bottom: 0.2rem;
+    }
+    .brand-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #3b82f6;
+      margin: 0;
+    }
+    .brand-subtitle {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .auth-card {
+      background: #0f131a;
+      border: 1px solid #232a36;
+      border-radius: 16px;
+      padding: 1.8rem 1.5rem;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+    .auth-card h2 {
+      font-size: 1.2rem;
+      margin-top: 0;
+      margin-bottom: 0.4rem;
+      color: #f8fafc;
+    }
+    .auth-card p {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-bottom: 1.2rem;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .form-group label {
+      font-size: 0.7rem;
+      color: #94a3b8;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      display: block;
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 0.7rem 0.85rem;
+      background-color: #161b26;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 0.88rem;
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+    .btn-action {
+      width: 100%;
+      padding: 0.75rem;
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: pointer;
+      margin-top: 0.4rem;
+      transition: background 0.2s;
+    }
+    .btn-action:hover {
+      background: #1d4ed8;
+    }
+    .btn-success {
+      background: #059669;
+    }
+    .btn-success:hover {
+      background: #047857;
+    }
+    .otp-section {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px dashed #2d3748;
+    }
+    .otp-notice {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+      font-size: 0.78rem;
+      padding: 0.6rem 0.8rem;
+      border-radius: 8px;
+      margin-bottom: 0.8rem;
+      text-align: center;
+    }
+    .switch-link {
+      text-align: center;
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px dashed #232a36;
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+    .switch-link a {
+      color: #60a5fa;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .switch-link a:hover {
+      text-decoration: underline;
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="register-container">
+    <div class="brand-header">
+      <div class="brand-logo">🪳</div>
+      <h1 class="brand-title">COCKROACH AID</h1>
+      <span class="brand-subtitle">Registration & OTP Verification</span>
+    </div>
+
+    <div class="auth-card">
+      <h2>Create Member Account</h2>
+      <p>Verify identity via SMS OTP and set a password for easy future logins.</p>
+
+      <div class="form-group">
+        <label>Your Name / Handle</label>
+        <input type="text" id="reg-name" placeholder="Enter Your Name (e.g. Priyanshu)">
+      </div>
+
+      <div class="form-group">
+        <label>Phone or Email</label>
+        <input type="text" id="reg-identifier" placeholder="Phone or Email (e.g. +919876543210)">
+      </div>
+
+      <div class="form-group">
+        <label>Create Account Password</label>
+        <input type="password" id="reg-password" placeholder="Create Password (min 4 chars)">
+      </div>
+
+      <button class="btn-action" id="btn-request-otp">Send Verification Code</button>
+
+      <div class="otp-section hidden" id="otp-section">
+        <div class="otp-notice" id="otp-notice-msg">
+          📩 Verification code sent via SMS. Check your mobile.
+        </div>
+        <div class="form-group">
+          <label>6-Digit OTP Code</label>
+          <input type="text" id="reg-otp-code" placeholder="Enter 6-Digit Code" maxlength="6">
+        </div>
+        <button class="btn-action btn-success" id="btn-confirm-otp">Verify & Register Account</button>
+      </div>
+
+      <div class="switch-link">
+        Already registered?<br>
+        <a href="login.html">← Back to Direct Member Login</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BACKEND_URL = 'https://cockroach-mutual-aid-backend.onrender.com';
+
+    document.getElementById('btn-request-otp').addEventListener('click', async () => {
+      const idVal = document.getElementById('reg-identifier').value.trim();
+      if (!idVal || idVal.length < 5) {
+        alert('Please enter a valid phone number or email.');
+        return;
+      }
+
+      const type = idVal.includes('@') ? 'email' : 'phone';
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/verify/request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type, identifier: idVal })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          document.getElementById('otp-section').classList.remove('hidden');
+          document.getElementById('otp-notice-msg').textContent = '📩 ' + data.message;
+          alert('Verification code sent!');
+        } else {
+          alert(data.error || 'Failed to send OTP.');
+        }
+      } catch (e) {
+        alert('Server connection timeout. Please check your network.');
+      }
+    });
+
+    document.getElementById('btn-confirm-otp').addEventListener('click', async () => {
+      const nameVal = document.getElementById('reg-name').value.trim() || 'Volunteer';
+      const idVal = document.getElementById('reg-identifier').value.trim();
+      const passVal = document.getElementById('reg-password').value.trim();
+      const codeVal = document.getElementById('reg-otp-code').value.trim();
+
+      if (!idVal || !codeVal) {
+        alert('Please enter your phone/email and the 6-digit OTP code.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/verify/confirm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: idVal.includes('@') ? 'email' : 'phone',
+            identifier: idVal,
+            code: codeVal,
+            password: passVal,
+            displayName: nameVal,
+            deviceinfo: navigator.userAgent
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          localStorage.setItem('mab_session_id', data.sessionId);
+          localStorage.setItem('mab_user_hash', data.userHash);
+          localStorage.setItem('mab_handle', data.handle || (nameVal + '-Cockroach'));
+          
+          alert(`✅ Account registered successfully! Welcome ${data.handle || nameVal}`);
+          window.location.href = 'index.html';
+        } else {
+          alert(data.error || 'OTP verification failed.');
+        }
+      } catch (e) {
+        alert('Server connection timeout.');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Member Login - Cockroach Mutual Aid Board</title>
+  <meta name="description" content="Sign in to your Cockroach Mutual Aid Board account.">
+  
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css?v=3.0">
+  <style>
+    body {
+      background-color: #080a0e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      color: #f1f5f9;
+    }
+    .login-container {
+      width: 100%;
+      max-width: 400px;
+      padding: 1.5rem;
+      box-sizing: border-box;
+    }
+    .brand-header {
+      text-align: center;
+      margin-bottom: 1.8rem;
+    }
+    .brand-logo {
+      font-size: 2.5rem;
+      margin-bottom: 0.2rem;
+    }
+    .brand-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #3b82f6;
+      margin: 0;
+    }
+    .brand-subtitle {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .auth-card {
+      background: #0f131a;
+      border: 1px solid #232a36;
+      border-radius: 16px;
+      padding: 1.8rem 1.5rem;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+    .auth-card h2 {
+      font-size: 1.2rem;
+      margin-top: 0;
+      margin-bottom: 0.4rem;
+      color: #f8fafc;
+    }
+    .auth-card p {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-bottom: 1.4rem;
+    }
+    .form-group {
+      margin-bottom: 1.1rem;
+    }
+    .form-group label {
+      font-size: 0.7rem;
+      color: #94a3b8;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      display: block;
+      margin-bottom: 0.4rem;
+      text-transform: uppercase;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 0.75rem 0.9rem;
+      background-color: #161b26;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 0.9rem;
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+    .btn-login {
+      width: 100%;
+      padding: 0.8rem;
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      margin-top: 0.6rem;
+      transition: background 0.2s;
+    }
+    .btn-login:hover {
+      background: #1d4ed8;
+    }
+    .switch-link {
+      text-align: center;
+      margin-top: 1.8rem;
+      padding-top: 1.2rem;
+      border-top: 1px dashed #232a36;
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+    .switch-link a {
+      color: #60a5fa;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .switch-link a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-container">
+    <div class="brand-header">
+      <div class="brand-logo">🪳</div>
+      <h1 class="brand-title">COCKROACH AID</h1>
+      <span class="brand-subtitle">Mutual Relief Network</span>
+    </div>
+
+    <div class="auth-card">
+      <h2>Member Sign In</h2>
+      <p>Enter your phone/email and password to access the Mutual Aid Board.</p>
+
+      <div class="form-group">
+        <label>Phone or Email</label>
+        <input type="text" id="login-identifier" placeholder="Phone or Email (e.g. +919876543210)">
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="Enter Your Password">
+      </div>
+
+      <button class="btn-login" id="btn-submit-login">Sign In</button>
+
+      <div class="switch-link">
+        Don't have an account yet?<br>
+        <a href="register.html">Register & Verify via SMS OTP →</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BACKEND_URL = 'https://cockroach-mutual-aid-backend.onrender.com';
+
+    document.getElementById('btn-submit-login').addEventListener('click', async () => {
+      const idVal = document.getElementById('login-identifier').value.trim();
+      const passVal = document.getElementById('login-password').value.trim();
+
+      if (!idVal || !passVal) {
+        alert('Please enter both your phone/email and password.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/login/password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier: idVal, password: passVal })
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          localStorage.setItem('mab_session_id', data.sessionId);
+          localStorage.setItem('mab_user_hash', data.userHash);
+          localStorage.setItem('mab_handle', data.handle || 'Cockroach Member');
+          
+          alert(`✅ Welcome back, ${data.handle || 'Cockroach Member'}!`);
+          window.location.href = 'index.html';
+        } else {
+          alert(data.error || 'Login failed. Please check your details.');
+        }
+      } catch (e) {
+        alert('Server connection timeout. Please check your internet connection.');
+      }
+    });
+  </script>
+</body>
+</html>

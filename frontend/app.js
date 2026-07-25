@@ -572,8 +572,7 @@ async function logout() {
   } catch (e) {}
 
   clearSession();
-  showScreen('screen-login');
-  logToConsole('Session closed. Local cache authorization credentials cleared.', 'info');
+  window.location.href = 'login.html';
 }
 
 async function killRemoteSessions() {
@@ -1516,8 +1515,8 @@ let chatPollInterval = null;
 // Require authentication check
 function requireAuthAction(actionName, callback) {
   if (!state.sessionId || !state.userHash) {
-    alert(`🔒 Registration Required!\n\nYou must verify/register via phone or email to ${actionName}. Guest mode is read-only.`);
-    showScreen('screen-welcome');
+    alert(`🔒 Login Required!\n\nYou must be signed in to ${actionName}. Redirecting to Login page...`);
+    window.location.href = 'login.html';
     return false;
   }
   if (callback) callback();
