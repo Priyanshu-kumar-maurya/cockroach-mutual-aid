@@ -288,25 +288,29 @@ app.post('/api/login/password', async (req, res) => {
   }
 
   identifier = identifier.trim();
-  let altIdentifier = identifier;
-  if (!identifier.startsWith('+') && /^\d{10}$/.test(identifier)) {
-    altIdentifier = '+91' + identifier;
+  let twilioTarget = identifier;
+  if (!identifier.startsWith('+')) {
+    if (/^\d{10}$/.test(identifier)) {
+      twilioTarget = '+91' + identifier;
+    } else if (/^\d+$/.test(identifier)) {
+      twilioTarget = '+' + identifier;
+    }
   }
 
   try {
     const bcrypt = require('bcryptjs');
     const user = await dbQuery.get(
-      `SELECT * FROM users WHERE identifier = ? OR identifier = ? OR user_hash = ?`,
-      [identifier, altIdentifier, hashValue(identifier)]
+      `SELECT * FROM users WHERE identifier = ? OR identifier = ? OR user_hash = ? OR user_hash = ?`,
+      [identifier, twilioTarget, hashValue(identifier), hashValue(twilioTarget)]
     );
 
     if (!user || !user.password_hash) {
-      return res.status(400).json({ error: 'No password found for this account. Please sign in via SMS OTP first and set a password.' });
+      return res.status(400).json({ error: 'No password set for this account yet. Please register via SMS OTP first and set a password.' });
     }
 
     const match = bcrypt.compareSync(password, user.password_hash);
     if (!match) {
-      return res.status(401).json({ error: 'Incorrect password. Please try again.' });
+      return res.status(401).json({ error: 'Incorrect password. Please check your credentials.' });
     }
 
     const sessionId = 'sess_' + generateId();
@@ -791,8 +795,8 @@ app.post('/api/coordinator/moderate-post', async (req, res) => {
 
 // --- PUBLIC CHAT & DIRECT MESSAGING ENDPOINTS ---
 
-// 1. Fetch Public Chat Messages (Auth required - blocks guest chat inspection)
-app.get('/api/chat/messages', authenticate, async (req, res) => {
+// 1. Fetch Public Chat Messages (Open read for visitors; posting requires auth)
+app.get('/api/chat/messages', async (req, res) => {
   try {
     const messages = await dbQuery.all(
       `SELECT * FROM public_chat ORDER BY created_at ASC LIMIT 50`

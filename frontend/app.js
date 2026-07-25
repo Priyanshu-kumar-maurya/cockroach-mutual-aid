@@ -5,12 +5,6 @@
 
 const BACKEND_URL = 'https://cockroach-mutual-aid-backend.onrender.com';
 
-// Strict Authentication Guard: Redirect unauthenticated visitors to login.html
-if (!localStorage.getItem('mab_session_id') || !localStorage.getItem('mab_user_hash')) {
-  console.log('[Auth Lock] Unauthenticated visitor detected on main dashboard. Redirecting to login.html...');
-  window.location.href = 'login.html';
-}
-
 // Purge legacy Service Worker caches on startup to force fresh production HTML load
 if ('caches' in window) {
   caches.keys().then((names) => {
