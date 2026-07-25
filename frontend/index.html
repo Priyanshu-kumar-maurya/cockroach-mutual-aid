@@ -40,15 +40,18 @@
   <!-- Leaflet Map CSS for Navigation -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   
+  <!-- FontAwesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
   <!-- Vanilla CSS Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=3.5">
+  <link rel="stylesheet" href="style.css?v=4.0">
 </head>
 <body>
   
   <!-- Top Control Bar -->
   <header class="main-header">
     <div class="header-logo">
-      <div class="logo-icon">🪳</div>
+      <div class="logo-icon"><i class="fa-solid fa-shield-halved"></i></div>
       <div class="logo-text">
         <h1>COCKROACH AID</h1>
         <span class="logo-tag">MUTUAL RELIEF</span>
@@ -58,23 +61,23 @@
     <div class="header-controls">
       <!-- Native Direct Emergency Ambulance Dialer -->
       <a href="tel:102" class="emergency-ambulance-btn" id="btn-call-ambulance" title="Emergency Direct Dial Ambulance (102)">
-        🚑 Call 102
+        <i class="fa-solid fa-truck-medical"></i> Call 102
       </a>
 
       <!-- Security & Encryption Inspector Trigger -->
       <button class="btn-security-inspect" id="btn-open-security-modal" title="Security & E2EE Encryption Verification">
-        🛡️ E2EE
+        <i class="fa-solid fa-lock"></i> E2EE
       </button>
 
       <!-- Direct Message Corner Action -->
       <button class="corner-dm-btn" id="header-dm-btn" title="Direct Messages Inbox">
-        💬 DM <span class="unread-badge hidden" id="header-dm-unread">●</span>
+        <i class="fa-solid fa-comments"></i> DM <span class="unread-badge hidden" id="header-dm-unread">●</span>
       </button>
 
       <!-- Session Profile Badge & Logout -->
       <div class="session-info hidden" id="session-info-bar">
-        <span class="user-pill-badge" id="session-user-badge">🪳 Cockroach</span>
-        <button id="logout-btn" class="btn-logout" title="Logout Account">🚪 Logout</button>
+        <span class="user-pill-badge" id="session-user-badge"><i class="fa-solid fa-circle-user"></i> Cockroach</span>
+        <button id="logout-btn" class="btn-logout" title="Logout Account"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
       </div>
 
       <!-- Guest Login / Register Nav Buttons -->
@@ -467,7 +470,7 @@
                   <label>First-Aid / Medical Certificate Photo</label>
                   <div class="photo-uploader-box">
                     <input type="file" id="medical-cert-input" accept="image/*" class="hidden">
-                    <button type="button" class="btn btn-secondary btn-block" id="btn-select-medical-cert">📸 Select Certificate Photo</button>
+                    <button type="button" class="btn btn-secondary btn-block" id="btn-select-medical-cert"><i class="fa-solid fa-camera"></i> Select Certificate Photo</button>
                     <span id="medical-cert-file-name" class="file-name-label">No photo attached</span>
                   </div>
                 </div>
@@ -480,19 +483,19 @@
           <!-- SCREEN 6: PUBLIC CHAT & DM HUB -->
           <div class="mobile-screen" id="screen-chat">
             <div class="screen-back-header">
-              <button class="back-btn" id="btn-back-chat-to-feed">← Board</button>
-              <h3>💬 Communication Hub</h3>
+              <button class="back-btn" id="btn-back-chat-to-feed"><i class="fa-solid fa-arrow-left"></i> Board</button>
+              <h3><i class="fa-solid fa-comments"></i> Communication Hub</h3>
             </div>
 
             <!-- Sub-Tabs: Public Chat vs 1-on-1 DMs -->
             <div class="chat-type-nav">
-              <button class="chat-type-btn active" id="tab-public-chat-view">🌐 Public Chat (Everyone)</button>
-              <button class="chat-type-btn" id="tab-private-dms-view">✉️ 1-on-1 Private DMs</button>
+              <button class="chat-type-btn active" id="tab-public-chat-view"><i class="fa-solid fa-globe"></i> Public Chat (Everyone)</button>
+              <button class="chat-type-btn" id="tab-private-dms-view"><i class="fa-solid fa-envelope"></i> 1-on-1 Private DMs</button>
             </div>
 
             <!-- Guest notice if unverified -->
             <div class="guest-chat-banner hidden" id="guest-chat-banner">
-              🔒 <span><strong>Guest Mode</strong>: You can read public chat. Register to send messages or DMs.</span>
+              <i class="fa-solid fa-lock"></i> <span><strong>Guest Mode</strong>: You can read public chat. Register to send messages or DMs.</span>
               <button class="btn btn-xs btn-primary" id="btn-guest-register-chat">Register Now</button>
             </div>
 
@@ -509,7 +512,7 @@
               </div>
               <div class="chat-guest-join-area hidden" id="chat-guest-join-area">
                 <a href="login.html" class="btn-join-chat-banner" id="btn-join-cockroach-chat">
-                  🪳 Join Cockroach Chat — Sign In / Register to Message →
+                  <i class="fa-solid fa-comments"></i> Join Cockroach Chat — Sign In / Register to Message <i class="fa-solid fa-arrow-right"></i>
                 </a>
               </div>
             </div>
@@ -518,7 +521,7 @@
             <div class="chat-view-section hidden" id="view-private-dms-section">
               <div class="dm-conversations-list" id="dm-conversations-list">
                 <div class="empty-state">
-                  <p>No active 1-on-1 private conversations yet. Tap any user's 🪳 avatar or name to send a private DM!</p>
+                  <p>No active 1-on-1 private conversations yet. Tap any user's profile or name to send a private DM!</p>
                 </div>
               </div>
             </div>
@@ -527,7 +530,7 @@
           <!-- SCREEN 7: 1-ON-1 DIRECT MESSAGE (DM) -->
           <div class="mobile-screen" id="screen-dm">
             <div class="screen-back-header">
-              <button class="back-btn" id="btn-back-dm-to-chat">← Chat</button>
+              <button class="back-btn" id="btn-back-dm-to-chat"><i class="fa-solid fa-arrow-left"></i> Chat</button>
               <h3 id="dm-recipient-title">Direct Message</h3>
             </div>
 

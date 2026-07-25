@@ -522,7 +522,7 @@ function updateSessionBar() {
     if (bar) bar.classList.remove('hidden');
     if (guestNav) guestNav.classList.add('hidden');
     const handle = localStorage.getItem('mab_handle') || localStorage.getItem('mab_user_identifier') || 'Volunteer Cockroach';
-    if (badge) badge.textContent = `🪳 ${handle}`;
+    if (badge) badge.innerHTML = `<i class="fa-solid fa-circle-user"></i> ${handle}`;
   } else {
     if (bar) bar.classList.add('hidden');
     if (guestNav) guestNav.classList.remove('hidden');
@@ -1555,7 +1555,6 @@ function renderPrivateDMsList() {
 
   const partners = {};
   dms.forEach(d => {
-    const isOwn = d.sender_hash === state.userHash;
     const partnerHash = isOwn ? d.receiver_hash : d.sender_hash;
     const partnerName = isOwn ? 'Cockroach Member' : (d.sender_name || 'Cockroach');
     partners[partnerHash] = { hash: partnerHash, name: partnerName, lastMsg: d.message, time: d.created_at };
@@ -1563,7 +1562,7 @@ function renderPrivateDMsList() {
 
   container.innerHTML = Object.values(partners).map(p => `
     <div class="dm-conversation-item" onclick="openDirectMessageScreen('${p.hash}', '${p.name}')">
-      <div class="chat-avatar-badge">🪳</div>
+      <div class="chat-avatar-badge"><i class="fa-solid fa-circle-user"></i></div>
       <div class="dm-convo-info">
         <strong style="color: var(--color-primary); font-size: 0.85rem;">${p.name}</strong>
         <p style="color: var(--text-muted); font-size: 0.75rem; margin: 0;">"${escapeHTML(p.lastMsg.substring(0, 30))}..."</p>
@@ -1673,12 +1672,12 @@ function renderChatMessages(messages) {
     }
     const displayName = `${rawName} Cockroach`;
 
-    const linkedTag = msg.linked_need_id ? `<a class="linked-need-tag" onclick="viewLinkedNeed('${msg.linked_need_id}')">📍 Linked Need #${msg.linked_need_id.substring(0, 6)}</a>` : '';
+    const linkedTag = msg.linked_need_id ? `<a class="linked-need-tag" onclick="viewLinkedNeed('${msg.linked_need_id}')"><i class="fa-solid fa-location-dot"></i> Linked Need #${msg.linked_need_id.substring(0, 6)}</a>` : '';
 
     return `
       <div class="chat-bubble ${isOwn ? 'own-message' : ''}">
         <div class="chat-avatar-badge" onclick="openUserProfileModal('${msg.user_hash}', '${displayName.replace(/'/g, "\\'")}')" title="Inspect Cockroach Profile">
-          ${msg.avatar_icon || '🪳'}
+          <i class="fa-solid fa-circle-user"></i>
         </div>
         <div class="chat-bubble-content">
           <div class="chat-author-row">
@@ -1686,7 +1685,6 @@ function renderChatMessages(messages) {
             <span class="chat-time">${formattedTime}</span>
           </div>
           <div class="chat-message-body">${escapeHTML(msg.message)}</div>
-          ${linkedTag}
         </div>
       </div>
     `;
