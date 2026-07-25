@@ -129,6 +129,77 @@ h1, h2, h3, h4, h5, h6 {
   gap: 0.8rem;
 }
 
+.guest-login-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.btn-nav-auth {
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-nav-auth.login {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.btn-nav-auth.login:hover {
+  background: #1d4ed8;
+}
+
+.btn-nav-auth.register {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.btn-nav-auth.register:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.btn-logout {
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-logout:hover {
+  background: #b91c1c;
+}
+
+.btn-join-chat-banner {
+  display: block;
+  width: 100%;
+  padding: 0.85rem;
+  margin-top: 0.5rem;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #ffffff;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.88rem;
+  border-radius: 10px;
+  text-decoration: none;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-join-chat-banner:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+}
+
 /* Corner DM Button */
 .corner-dm-btn {
   background: hsla(210, 100%, 55%, 0.15);

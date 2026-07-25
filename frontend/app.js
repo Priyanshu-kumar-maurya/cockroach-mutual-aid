@@ -516,13 +516,16 @@ function clearSession() {
 function updateSessionBar() {
   const bar = document.getElementById('session-info-bar');
   const badge = document.getElementById('session-user-badge');
+  const guestNav = document.getElementById('guest-login-nav-bar');
 
   if (state.sessionId) {
-    bar.classList.remove('hidden');
-    const name = localStorage.getItem('mab_user_identifier') || 'Volunteer Cockroach';
-    badge.textContent = `🪳 ${name}`;
+    if (bar) bar.classList.remove('hidden');
+    if (guestNav) guestNav.classList.add('hidden');
+    const handle = localStorage.getItem('mab_handle') || localStorage.getItem('mab_user_identifier') || 'Volunteer Cockroach';
+    if (badge) badge.textContent = `🪳 ${handle}`;
   } else {
-    bar.classList.add('hidden');
+    if (bar) bar.classList.add('hidden');
+    if (guestNav) guestNav.classList.remove('hidden');
   }
 }
 
@@ -1602,10 +1605,17 @@ document.getElementById('mobile-corner-dm-btn')?.addEventListener('click', () =>
 
 function initChatView() {
   const guestBanner = document.getElementById('guest-chat-banner');
+  const inputArea = document.getElementById('chat-logged-in-input-area');
+  const joinArea = document.getElementById('chat-guest-join-area');
+
   if (!state.sessionId || !state.userHash) {
     guestBanner?.classList.remove('hidden');
+    inputArea?.classList.add('hidden');
+    joinArea?.classList.remove('hidden');
   } else {
     guestBanner?.classList.add('hidden');
+    inputArea?.classList.remove('hidden');
+    joinArea?.classList.add('hidden');
   }
 
   fetchChatMessages();

@@ -41,7 +41,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   
   <!-- Vanilla CSS Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=3.4">
+  <link rel="stylesheet" href="style.css?v=3.5">
 </head>
 <body>
   
@@ -71,10 +71,16 @@
         💬 DM <span class="unread-badge hidden" id="header-dm-unread">●</span>
       </button>
 
-      <!-- Session Profile Badge -->
+      <!-- Session Profile Badge & Logout -->
       <div class="session-info hidden" id="session-info-bar">
         <span class="user-pill-badge" id="session-user-badge">🪳 Cockroach</span>
-        <button id="logout-btn" class="btn-logout-icon" title="Logout">🚪</button>
+        <button id="logout-btn" class="btn-logout" title="Logout Account">🚪 Logout</button>
+      </div>
+
+      <!-- Guest Login / Register Nav Buttons -->
+      <div class="guest-login-nav" id="guest-login-nav-bar">
+        <a href="login.html" class="btn-nav-auth login">Sign In</a>
+        <a href="register.html" class="btn-nav-auth register">Register</a>
       </div>
 
       <!-- Network Toggle -->
@@ -497,9 +503,14 @@
                   <p>Loading public messages...</p>
                 </div>
               </div>
-              <div class="chat-input-area">
+              <div class="chat-input-area" id="chat-logged-in-input-area">
                 <input type="text" id="chat-input-message" placeholder="Broadcast to everyone... (Auto-appends Cockroach)">
                 <button class="btn btn-primary btn-sm" id="btn-send-chat">Send</button>
+              </div>
+              <div class="chat-guest-join-area hidden" id="chat-guest-join-area">
+                <a href="login.html" class="btn-join-chat-banner" id="btn-join-cockroach-chat">
+                  🪳 Join Cockroach Chat — Sign In / Register to Message →
+                </a>
               </div>
             </div>
 
