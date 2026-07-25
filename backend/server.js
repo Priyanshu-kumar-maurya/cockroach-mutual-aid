@@ -791,8 +791,8 @@ app.post('/api/coordinator/moderate-post', async (req, res) => {
 
 // --- PUBLIC CHAT & DIRECT MESSAGING ENDPOINTS ---
 
-// 1. Fetch Public Chat Messages (Unrestricted read for guests)
-app.get('/api/chat/messages', async (req, res) => {
+// 1. Fetch Public Chat Messages (Auth required - blocks guest chat inspection)
+app.get('/api/chat/messages', authenticate, async (req, res) => {
   try {
     const messages = await dbQuery.all(
       `SELECT * FROM public_chat ORDER BY created_at ASC LIMIT 50`
