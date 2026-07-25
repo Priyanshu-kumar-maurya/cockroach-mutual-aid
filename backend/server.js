@@ -1107,8 +1107,57 @@ app.get('/api/user/:hash', async (req, res) => {
   }
 });
 
+// 6. Submit Post Un-hide Appeal (Auth required)
+app.post('/api/appeals', authenticate, validate([
+  body('need_id').trim().notEmpty().withMessage('Need ID is required.'),
+  body('reason').trim().notEmpty().isLength({ max: 1000 }).withMessage('Reason is required.')
+]), async (req, res) => {
+  const { need_id, reason } = req.body;
+  const appealId = 'app_' + generateId();
+  const now = new Date().toISOString();
+
+  try {
+    await dbQuery.run(
+      `INSERT INTO appeals (appeal_id, need_id, user_hash, reason, status, created_at)
+       VALUES (?, ?, ?, ?, 'Pending', ?)`,
+      [appealId, need_id, req.userHash, reason, now]
+    );
+
+    res.status(201).json({
+      message: 'Appeal submitted successfully. Coordinators will review your post.',
+      appealId
+    });
+  } catch (err) {
+    logger.error('Appeal error:', err);
+    res.status(500).json({ error: 'Failed to submit appeal.' });
+  }
+});
+
+// 7. Self-Service Data Erasure / Right to be Forgotten (Auth required)
+app.post('/api/user/delete-data', authenticate, async (req, res) => {
+  try {
+    const userHash = req.userHash;
+    
+    // Purge user data across all tables
+    await dbQuery.run(`DELETE FROM users WHERE user_hash = ?`, [userHash]);
+    await dbQuery.run(`DELETE FROM verifications WHERE user_hash = ?`, [userHash]);
+    await dbQuery.run(`DELETE FROM sessions WHERE user_hash = ?`, [userHash]);
+    await dbQuery.run(`DELETE FROM helpers WHERE helper_hash = ?`, [userHash]);
+    await dbQuery.run(`DELETE FROM public_chat WHERE user_hash = ?`, [userHash]);
+    await dbQuery.run(`DELETE FROM direct_messages WHERE sender_hash = ? OR receiver_hash = ?`, [userHash, userHash]);
+    await dbQuery.run(`DELETE FROM location_audit_logs WHERE viewer_hash = ?`, [userHash]);
+
+    res.json({
+      message: 'All your user verification records, sessions, chat history, and audit logs have been permanently erased.'
+    });
+  } catch (err) {
+    logger.error('Self service data erasure error:', err);
+    res.status(500).json({ error: 'Failed to erase user data.' });
+  }
+});
+
 dbReady.then(() => {
   app.listen(PORT, () => {
-    console.log(`Mutual Aid Backend running on port ${PORT}`);
+    logger.info(`Mutual Aid Backend running on port ${PORT}`);
   });
 });

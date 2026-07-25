@@ -200,6 +200,17 @@ function initializeSchemaSQLite() {
       )
     `);
 
+    db.run(`
+      CREATE TABLE IF NOT EXISTS appeals (
+        appeal_id TEXT PRIMARY KEY,
+        need_id TEXT NOT NULL,
+        user_hash TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        status TEXT DEFAULT 'Pending' CHECK(status IN ('Pending', 'Approved', 'Rejected')),
+        created_at TEXT NOT NULL
+      )
+    `);
+
     // Location Audit Logs (Tracks who viewed exact GPS pin & when)
     db.run(`
       CREATE TABLE IF NOT EXISTS location_audit_logs (
@@ -316,6 +327,17 @@ async function initializeSchemaPG() {
         display_name TEXT NOT NULL,
         unique_handle TEXT UNIQUE NOT NULL,
         password_hash TEXT,
+        created_at TEXT NOT NULL
+      )
+    `);
+
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS appeals (
+        appeal_id TEXT PRIMARY KEY,
+        need_id TEXT NOT NULL,
+        user_hash TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        status TEXT DEFAULT 'Pending' CHECK(status IN ('Pending', 'Approved', 'Rejected')),
         created_at TEXT NOT NULL
       )
     `);
