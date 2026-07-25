@@ -1,81 +1,150 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
+const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
+const winston = require('winston');
+const { body, validationResult } = require('express-validator');
 const { dbQuery, dbReady, purgeExpiredVerifications, checkPostRateLimit, processReport, encryptLocation, decryptLocation, generateUniqueHandle } = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const JWT_SECRET = process.env.JWT_SECRET || require('crypto').randomBytes(64).toString('hex');
 
-app.use(cors());
-app.use(express.json({ limit: '10mb' })); // support base64 photos
+// Winston Structured Logger
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' })
+  ]
+});
 
-// Simple memory store for OTPs (simulating phone/email OTP)
+// Security Middleware
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(cookieParser());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*',
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+
+// Rate Limiters
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: { error: 'Too many requests from this IP. Please try again after 15 minutes.' }
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: { error: 'Too many authentication attempts. Please try again after 15 minutes.' }
+});
+
+app.use('/api/', globalLimiter);
+app.use('/api/verify/', authLimiter);
+app.use('/api/login/', authLimiter);
+
+// Input Validation Middleware Generator
+function validate(validations) {
+  return async (req, res, next) => {
+    await Promise.all(validations.map(v => v.run(req)));
+    const errors = validationResult(req);
+    if (errors.isEmpty()) return next();
+    return res.status(400).json({ error: errors.array()[0].msg });
+  };
+}
+
+// Base64 File Upload Inspection (Max 5MB, JPG/PNG only)
+function validateFileUpload(base64Str, maxMb = 5) {
+  if (!base64Str) return true;
+  if (typeof base64Str !== 'string') return false;
+  const approxBytes = base64Str.length * (3 / 4);
+  if (approxBytes > maxMb * 1024 * 1024) return false;
+  if (!base64Str.startsWith('data:image/jpeg') && !base64Str.startsWith('data:image/png') && !base64Str.startsWith('data:image/jpg')) {
+    return false;
+  }
+  return true;
+}
+
+// Issue JWT Token Pair
+function issueTokens(userHash, uniqueHandle) {
+  const accessToken = jwt.sign({ userHash, handle: uniqueHandle }, JWT_SECRET, { expiresIn: '15m' });
+  const refreshToken = jwt.sign({ userHash, type: 'refresh' }, JWT_SECRET, { expiresIn: '30d' });
+  return { accessToken, refreshToken };
+}
+
+// Memory store for OTPs
 const activeOTPs = {};
 
-// Helper: Generate a unique ID
 function generateId() {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
-// Helper: Simple SHA256 simulation or hash generator for user anonymity
 function hashValue(value) {
-  // Simple deterministic hash for demo anonymity
   let hash = 0;
   for (let i = 0; i < value.length; i++) {
     const char = value.charCodeAt(i);
     hash = (hash << 5) - hash + char;
-    hash = hash & hash; // Convert to 32bit integer
+    hash = hash & hash;
   }
   return 'usr_' + Math.abs(hash).toString(16);
 }
 
-// Middleware: Authenticate Session
+// Middleware: Authenticate Session (Supports JWT Bearer & Cookie fallback)
 async function authenticate(req, res, next) {
+  let token = req.cookies?.accessToken;
   let authHeader = req.headers['authorization'];
-  if (!authHeader) {
+  
+  if (!token && authHeader) {
+    token = authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : authHeader.trim();
+  }
+
+  if (!token) {
     return res.status(401).json({ error: 'No authorization session provided.' });
   }
 
-  let sessionId = authHeader;
-  if (sessionId.startsWith('Bearer ')) {
-    sessionId = sessionId.substring(7).trim();
-  }
-
+  // First try verifying as JWT
   try {
-    const session = await dbQuery.get(
-      `SELECT * FROM sessions WHERE session_id = ? AND is_active = 1`,
-      [sessionId]
-    );
-
-    if (!session) {
-      return res.status(401).json({ error: 'Session expired or invalid.' });
-    }
-
-    // Session validity: 30 days persistent login
-    const now = new Date();
-    const lastActive = new Date(session.last_active_at);
-    const diffMs = now - lastActive;
-    if (diffMs > 30 * 24 * 60 * 60 * 1000) {
-      await dbQuery.run(
-        `UPDATE sessions SET is_active = 0 WHERE session_id = ?`,
-        [sessionId]
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.userHash = decoded.userHash;
+    req.handle = decoded.handle;
+    return next();
+  } catch (jwtErr) {
+    // Fallback: Check DB sessions table for persistent session IDs
+    try {
+      const session = await dbQuery.get(
+        `SELECT * FROM sessions WHERE session_id = ? AND is_active = 1`,
+        [token]
       );
-      return res.status(401).json({ error: 'Session expired after 30 days. Please log in again.' });
+
+      if (!session) {
+        return res.status(401).json({ error: 'Session expired or invalid.' });
+      }
+
+      const now = new Date();
+      const lastActive = new Date(session.last_active_at);
+      if (now - lastActive > 30 * 24 * 60 * 60 * 1000) {
+        await dbQuery.run(`UPDATE sessions SET is_active = 0 WHERE session_id = ?`, [token]);
+        return res.status(401).json({ error: 'Session expired after 30 days. Please log in again.' });
+      }
+
+      await dbQuery.run(`UPDATE sessions SET last_active_at = ? WHERE session_id = ?`, [now.toISOString(), token]);
+      req.userHash = session.user_hash;
+      req.sessionId = token;
+      return next();
+    } catch (err) {
+      logger.error('Auth error:', err);
+      return res.status(500).json({ error: 'Internal auth error.' });
     }
-
-    // Update last active time
-    const nowIso = now.toISOString();
-    await dbQuery.run(
-      `UPDATE sessions SET last_active_at = ? WHERE session_id = ?`,
-      [nowIso, sessionId]
-    );
-
-    req.userHash = session.user_hash;
-    req.sessionId = sessionId;
-    next();
-  } catch (err) {
-    console.error('Auth error:', err);
-    res.status(500).json({ error: 'Internal auth error.' });
   }
 }
 
@@ -118,8 +187,10 @@ dbReady.then(() => {
 
 // --- ENDPOINTS ---
 
-// 1. Verification Request (Trigger Real OTP)
-app.post('/api/verify/request', async (req, res) => {
+// 1. Verification Request (Rate limited & Validated)
+app.post('/api/verify/request', validate([
+  body('identifier').trim().notEmpty().withMessage('Valid phone number or email identifier is required.')
+]), async (req, res) => {
   let { type, identifier } = req.body; // type: 'phone' or 'email'
   if (!identifier || identifier.length < 5) {
     return res.status(400).json({ error: 'Valid phone number or email identifier is required.' });
@@ -242,8 +313,11 @@ app.post('/api/verify/request', async (req, res) => {
   });
 });
 
-// 2. Verification Confirm (Strict OTP Validation, User Registration & Session Creation)
-app.post('/api/verify/confirm', async (req, res) => {
+// 2. Verification Confirm (Strict OTP Validation, User Registration & JWT Issuance)
+app.post('/api/verify/confirm', validate([
+  body('identifier').trim().notEmpty().withMessage('Identifier is required.'),
+  body('code').trim().isLength({ min: 6, max: 6 }).withMessage('OTP code must be 6 digits.')
+]), async (req, res) => {
   const { type, identifier, code, deviceinfo, password, displayName } = req.body;
   if (!identifier || !code) {
     return res.status(400).json({ error: 'Identifier and 6-digit OTP code are required.' });
@@ -319,7 +393,7 @@ app.post('/api/verify/confirm', async (req, res) => {
         );
       }
     } catch (userDbErr) {
-      console.warn('[User Save Notice] Unique handle/user constraint handled:', userDbErr.message);
+      logger.warn('[User Save Notice] Unique handle/user constraint handled:', userDbErr.message);
     }
 
     // Record verification
@@ -330,34 +404,45 @@ app.post('/api/verify/confirm', async (req, res) => {
       [verificationId, userHash, type, masked, now]
     );
 
-    // Create session (30 days persistent)
-    const sessionId = 'sess_' + generateId();
+    // Issue JWT Access Token & Refresh Token Pair
+    const tokens = issueTokens(userHash, uniqueHandle);
+    
+    // Also record persistent session ID
     await dbQuery.run(
       `INSERT INTO sessions (session_id, user_hash, device_info, is_active, created_at, last_active_at)
        VALUES (?, ?, ?, 1, ?, ?)`,
-      [sessionId, userHash, deviceinfo || 'Web Client', now, now]
+      [tokens.accessToken, userHash, deviceinfo || 'Web Client', now, now]
     );
+
+    res.cookie('accessToken', tokens.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000
+    });
 
     res.json({
       message: 'Verification successful.',
-      sessionId,
+      sessionId: tokens.accessToken,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       userHash,
       handle: uniqueHandle,
       displayName: nameToUse,
       type
     });
   } catch (err) {
-    console.error('Confirm verification error:', err);
+    logger.error('Confirm verification error:', err);
     res.status(500).json({ error: `Verification failure: ${err.message}` });
   }
 });
 
-// 2.5 Direct Password Login (Skip OTP for returning users)
-app.post('/api/login/password', async (req, res) => {
+// 2.5 Direct Password Login (Skip OTP for returning users - Validated & JWT Issuance)
+app.post('/api/login/password', validate([
+  body('identifier').trim().notEmpty().withMessage('Phone or email identifier is required.'),
+  body('password').trim().notEmpty().withMessage('Password is required.')
+]), async (req, res) => {
   let { identifier, password } = req.body;
-  if (!identifier || !password) {
-    return res.status(400).json({ error: 'Phone/Email identifier and password are required.' });
-  }
 
   identifier = identifier.trim();
   let twilioTarget = identifier;
@@ -385,18 +470,27 @@ app.post('/api/login/password', async (req, res) => {
       return res.status(401).json({ error: 'Incorrect password. Please check your credentials.' });
     }
 
-    const sessionId = 'sess_' + generateId();
+    const tokens = issueTokens(user.user_hash, user.unique_handle);
     const now = new Date().toISOString();
     await dbQuery.run(
       `INSERT INTO sessions (session_id, user_hash, device_info, is_active, created_at, last_active_at)
        VALUES (?, ?, ?, 1, ?, ?)`,
-      [sessionId, user.user_hash, 'Web Client Password Login', now, now]
+      [tokens.accessToken, user.user_hash, 'Web Client Password Login', now, now]
     );
+
+    res.cookie('accessToken', tokens.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000
+    });
 
     res.json({
       success: true,
       message: 'Password login successful.',
-      sessionId,
+      sessionId: tokens.accessToken,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       userHash: user.user_hash,
       handle: user.unique_handle,
       displayName: user.display_name
@@ -496,12 +590,21 @@ app.post('/api/session/logout', authenticate, async (req, res) => {
   }
 });
 
-// 7. Post a Need (Rate limited to 5/hr, 20/day)
-app.post('/api/needs', authenticate, async (req, res) => {
+// 7. Post a Need (Rate limited & File Validated)
+app.post('/api/needs', authenticate, validate([
+  body('category').isIn(['Food', 'Water', 'Medical', 'Shelter', 'Other']).withMessage('Invalid category.'),
+  body('urgency').isIn(['Normal', 'Urgent', 'Emergency']).withMessage('Invalid urgency level.'),
+  body('description').trim().notEmpty().isLength({ max: 2000 }).withMessage('Description must be between 1 and 2000 characters.'),
+  body('zone').trim().notEmpty().withMessage('Zone/Location is required.')
+]), async (req, res) => {
   const { category, urgency, description, photo_before, zone, exact_location, contact_channel } = req.body;
 
-  if (!category || !urgency || !description || !zone || !exact_location) {
-    return res.status(400).json({ error: 'All fields (category, urgency, description, zone, exact_location) are required.' });
+  if (!exact_location) {
+    return res.status(400).json({ error: 'GPS exact location coordinates are required.' });
+  }
+
+  if (photo_before && !validateFileUpload(photo_before, 5)) {
+    return res.status(400).json({ error: 'Photo upload must be valid JPG/PNG format under 5MB.' });
   }
 
   try {
