@@ -3,7 +3,7 @@
    Provides offline asset caching, network fallback, and offline sync support.
    ========================================================================== */
 
-const CACHE_NAME = 'mutual-aid-board-v10-guest-read-posting-auth';
+const CACHE_NAME = 'mutual-aid-board-v11-service-worker-cache-clear';
 const ASSETS = [
   './',
   './index.html',

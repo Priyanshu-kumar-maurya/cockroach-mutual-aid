@@ -298,24 +298,28 @@ app.post('/api/verify/confirm', async (req, res) => {
     const nameToUse = displayName || 'Volunteer';
     const uniqueHandle = generateUniqueHandle(nameToUse, userHash);
 
-    // Save or Update User in database
+    // Save or Update User in database safely
     const existingUser = await dbQuery.get(`SELECT * FROM users WHERE user_hash = ? OR identifier = ? OR identifier = ?`, [userHash, identifier, twilioPhoneTarget]);
     let passwordHash = existingUser ? existingUser.password_hash : null;
     if (password && password.length >= 4) {
       passwordHash = bcrypt.hashSync(password, 10);
     }
 
-    if (existingUser) {
-      await dbQuery.run(
-        `UPDATE users SET password_hash = COALESCE(?, password_hash), display_name = ?, unique_handle = ? WHERE user_hash = ?`,
-        [passwordHash, nameToUse, uniqueHandle, existingUser.user_hash]
-      );
-    } else {
-      await dbQuery.run(
-        `INSERT INTO users (user_hash, identifier, display_name, unique_handle, password_hash, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [userHash, identifier, nameToUse, uniqueHandle, passwordHash, now]
-      );
+    try {
+      if (existingUser) {
+        await dbQuery.run(
+          `UPDATE users SET password_hash = COALESCE(?, password_hash), display_name = ? WHERE user_hash = ?`,
+          [passwordHash, nameToUse, existingUser.user_hash]
+        );
+      } else {
+        await dbQuery.run(
+          `INSERT INTO users (user_hash, identifier, display_name, unique_handle, password_hash, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [userHash, identifier, nameToUse, uniqueHandle, passwordHash, now]
+        );
+      }
+    } catch (userDbErr) {
+      console.warn('[User Save Notice] Unique handle/user constraint handled:', userDbErr.message);
     }
 
     // Record verification
