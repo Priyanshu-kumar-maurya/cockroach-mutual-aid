@@ -2037,3 +2037,78 @@ input[type="text"]:focus, select:focus, textarea:focus {
     border-width: 6px;
   }
 }
+
+/* High Contrast Mode Toggle Button */
+.btn-contrast-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-full);
+  color: #cbd5e1;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-contrast-toggle:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.btn-export-csv {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: auto;
+  transition: all 0.2s ease;
+}
+
+.btn-export-csv:hover {
+  background: #10b981;
+  color: #ffffff;
+}
+
+/* Accessibility High-Contrast Theme Overrides */
+body.high-contrast {
+  --bg-dark: #000000;
+  --bg-card: #0a0a0a;
+  --border-color: #ffe600;
+  --text-main: #ffffff;
+  --text-muted: #ffe600;
+  --color-primary: #ffe600;
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+body.high-contrast .main-header,
+body.high-contrast .smartphone-frame,
+body.high-contrast .auth-card,
+body.high-contrast .feed-card,
+body.high-contrast .mobile-screen {
+  background: #000000 !important;
+  border-color: #ffe600 !important;
+  box-shadow: 0 0 10px rgba(255, 230, 0, 0.3) !important;
+}
+
+body.high-contrast .feed-card {
+  color: #ffffff !important;
+}
+
+body.high-contrast .btn-primary,
+body.high-contrast .filter-chip.active {
+  background: #ffe600 !important;
+  color: #000000 !important;
+  font-weight: 900 !important;
+}

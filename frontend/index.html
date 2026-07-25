@@ -44,7 +44,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
   <!-- Vanilla CSS Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=4.0">
+  <link rel="stylesheet" href="style.css?v=5.0">
 </head>
 <body>
   
@@ -85,6 +85,11 @@
         <a href="login.html" class="btn-nav-auth login">Sign In</a>
         <a href="register.html" class="btn-nav-auth register">Register</a>
       </div>
+
+      <!-- High Contrast Toggle Button -->
+      <button class="btn-contrast-toggle" id="btn-toggle-contrast" title="Toggle High-Contrast Accessibility Mode">
+        <i class="fa-solid fa-circle-half-stroke"></i> Contrast
+      </button>
 
       <!-- Network Toggle -->
       <div class="control-group">
@@ -230,6 +235,7 @@
               <button class="filter-chip" data-filter="Medical">Medical</button>
               <button class="filter-chip" data-filter="Food">Food / Water</button>
               <button class="filter-chip" data-filter="Shelter">Shelter</button>
+              <button class="btn-export-csv" id="btn-export-csv" title="Export Needs Feed to CSV Spreadsheet"><i class="fa-solid fa-file-csv"></i> CSV</button>
             </div>
             
             <!-- Queue Banner for Offline sync -->

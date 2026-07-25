@@ -2090,3 +2090,74 @@ window.addEventListener('online', () => {
   logToConsole('[Network Monitor] Back online!', 'success');
   flushOfflinePostQueue();
 });
+
+// High Contrast Theme Switcher & Persistence
+if (localStorage.getItem('mab_high_contrast') === 'true') {
+  document.body.classList.add('high-contrast');
+}
+
+document.getElementById('btn-toggle-contrast')?.addEventListener('click', () => {
+  const isHigh = document.body.classList.toggle('high-contrast');
+  localStorage.setItem('mab_high_contrast', isHigh);
+  logToConsole(`[Accessibility] High-Contrast Field Mode ${isHigh ? 'Activated' : 'Deactivated'}`, 'info');
+});
+
+// Export Mutual Aid Feed to CSV
+document.getElementById('btn-export-csv')?.addEventListener('click', async () => {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/needs`);
+    const needs = res.ok ? await res.json() : mockDatabase.needs;
+    
+    if (!needs || needs.length === 0) {
+      alert('No active needs data to export.');
+      return;
+    }
+
+    const headers = ['Need_ID', 'Category', 'Urgency', 'Zone', 'Description', 'Phone_Verified', 'Email_Verified', 'Status', 'Posted_At'];
+    const rows = needs.map(n => [
+      n.need_id,
+      n.category,
+      n.urgency,
+      `"${(n.zone || '').replace(/"/g, '""')}"`,
+      `"${(n.description || '').replace(/"/g, '""')}"`,
+      n.phone_verified ? 'YES' : 'NO',
+      n.email_verified ? 'YES' : 'NO',
+      n.status,
+      n.posted_at
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Cockroach_Mutual_Aid_Feed_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    logToConsole('[Data Export] Mutual aid feed exported as CSV successfully!', 'success');
+  } catch (err) {
+    alert('Failed to export CSV: ' + err.message);
+  }
+});
+
+// Audio & Haptic Emergency Sound Alert Helper
+function triggerEmergencyAlertSound() {
+  try {
+    if ('vibrate' in navigator) {
+      navigator.vibrate([200, 100, 200, 100, 300]);
+    }
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.3);
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+  } catch (e) {}
+}
