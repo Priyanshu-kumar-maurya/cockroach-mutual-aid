@@ -274,7 +274,7 @@ app.post('/api/verify/request', validate([
 
       const htmlBody = `
         <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background: #0c0f14; color: #ffffff; border-radius: 12px; border: 1px solid #232a36;">
-          <h2 style="color: #3b82f6; text-align: center; margin-bottom: 5px;">🪳 COCKROACH AID</h2>
+          <h2 style="color: #3b82f6; text-align: center; margin-bottom: 5px;">COCKROACH AID</h2>
           <p style="text-align: center; color: #94a3b8; font-size: 14px;">Mutual Relief Verification Code</p>
           <div style="background: #161b26; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
             <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #34d399;">${code}</span>

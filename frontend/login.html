@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Member Login - Cockroach Mutual Aid Board</title>
-  <meta name="description" content="Sign in to your Cockroach Mutual Aid Board account.">
+  <meta name="description" content="Sign in to your Cockroach Mutual Aid Board account via OTP verification.">
   
   <!-- Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,8 +15,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=3.5">
+  <link rel="stylesheet" href="style.css?v=7.0">
   <style>
+    * { box-sizing: border-box; }
     body {
       background-color: #080a0e;
       display: flex;
@@ -26,12 +27,11 @@
       margin: 0;
       font-family: 'Inter', sans-serif;
       color: #f1f5f9;
+      padding: 1rem;
     }
     .login-container {
       width: 100%;
       max-width: 400px;
-      padding: 1.5rem;
-      box-sizing: border-box;
     }
     .brand-header {
       text-align: center;
@@ -65,10 +65,10 @@
     .auth-card h2 {
       font-size: 1.2rem;
       margin-top: 0;
-      margin-bottom: 0.4rem;
+      margin-bottom: 0.3rem;
       color: #f8fafc;
     }
-    .auth-card p {
+    .auth-card > p {
       font-size: 0.8rem;
       color: #94a3b8;
       margin-bottom: 1.4rem;
@@ -93,7 +93,6 @@
       border-radius: 8px;
       color: #ffffff;
       font-size: 0.9rem;
-      box-sizing: border-box;
       outline: none;
       transition: border-color 0.2s;
     }
@@ -101,22 +100,65 @@
       border-color: #3b82f6;
       box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
     }
-    .btn-login {
+    .btn-primary {
       width: 100%;
       padding: 0.8rem;
-      background: #2563eb;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
       color: #ffffff;
       border: none;
       border-radius: 8px;
       font-weight: 700;
       font-size: 0.9rem;
       cursor: pointer;
-      margin-top: 0.6rem;
-      transition: background 0.2s;
+      margin-top: 0.4rem;
+      transition: opacity 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
     }
-    .btn-login:hover {
-      background: #1d4ed8;
+    .btn-primary:hover { opacity: 0.92; }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-success {
+      background: linear-gradient(135deg, #059669, #047857);
     }
+    .otp-section {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px dashed #2d3748;
+    }
+    .otp-notice {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #93c5fd;
+      font-size: 0.78rem;
+      padding: 0.6rem 0.8rem;
+      border-radius: 8px;
+      margin-bottom: 0.8rem;
+      text-align: center;
+      line-height: 1.5;
+    }
+    .alert-box {
+      border-radius: 8px;
+      padding: 0.65rem 0.9rem;
+      font-size: 0.8rem;
+      margin-bottom: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .alert-error {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+    .alert-success {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+    .hidden { display: none !important; }
     .switch-link {
       text-align: center;
       margin-top: 1.8rem;
@@ -130,8 +172,17 @@
       text-decoration: none;
       font-weight: 600;
     }
-    .switch-link a:hover {
-      text-decoration: underline;
+    .switch-link a:hover { text-decoration: underline; }
+    .step-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #3b82f6;
+      margin-bottom: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
     }
   </style>
 </head>
@@ -146,44 +197,163 @@
 
     <div class="auth-card">
       <h2>Member Sign In</h2>
-      <p>Enter your phone/email and password to access the Mutual Aid Board.</p>
+      <p>Enter your phone or email to receive a one-time verification code.</p>
 
-      <div class="form-group">
-        <label>Phone or Email</label>
-        <input type="text" id="login-identifier" placeholder="Phone or Email (e.g. +919876543210)">
+      <!-- Inline message box (replaces browser alert) -->
+      <div class="alert-box alert-error hidden" id="msg-box">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span id="msg-text"></span>
       </div>
 
-      <div class="form-group">
-        <label>Password</label>
-        <input type="password" id="login-password" placeholder="Enter Your Password">
+      <!-- Step 1: Identifier Input -->
+      <div id="step-1">
+        <div class="step-label"><i class="fa-solid fa-mobile-screen-button"></i> Step 1 — Enter Phone or Email</div>
+        <div class="form-group">
+          <label>Phone or Email</label>
+          <input type="text" id="login-identifier" placeholder="+919876543210 or user@email.com" autocomplete="username">
+        </div>
+        <button class="btn-primary" id="btn-send-otp">
+          <i class="fa-solid fa-paper-plane"></i> Send Verification Code
+        </button>
       </div>
 
-      <button class="btn-login" id="btn-submit-login">Sign In</button>
+      <!-- Step 2: OTP Input (hidden until OTP sent) -->
+      <div class="otp-section hidden" id="step-2">
+        <div class="otp-notice" id="otp-notice-msg">
+          <i class="fa-solid fa-envelope-open-text"></i> Verification code sent. Check your phone or inbox.
+        </div>
+        <div class="step-label"><i class="fa-solid fa-key"></i> Step 2 — Enter OTP Code</div>
+        <div class="form-group">
+          <label>6-Digit OTP Code</label>
+          <input type="text" id="login-otp-code" placeholder="Enter 6-digit code" maxlength="6" autocomplete="one-time-code" inputmode="numeric">
+        </div>
+        <button class="btn-primary btn-success" id="btn-verify-otp">
+          <i class="fa-solid fa-circle-check"></i> Verify &amp; Sign In
+        </button>
+        <button class="btn-primary" id="btn-resend-otp" style="margin-top:0.5rem; background: #1e293b; border: 1px solid #334155;">
+          <i class="fa-solid fa-rotate-right"></i> <span id="resend-label">Resend Code</span>
+        </button>
+      </div>
 
       <div class="switch-link">
         Don't have an account yet?<br>
-        <a href="register.html">Register & Verify via SMS OTP <i class="fa-solid fa-arrow-right"></i></a>
+        <a href="register.html"><i class="fa-solid fa-user-plus"></i> Register via SMS OTP <i class="fa-solid fa-arrow-right"></i></a>
       </div>
     </div>
   </div>
 
   <script>
     const BACKEND_URL = 'https://cockroach-mutual-aid-backend.onrender.com';
+    let resendTimer = null;
+    let storedIdentifier = '';
 
-    document.getElementById('btn-submit-login').addEventListener('click', async () => {
+    function showMsg(text, type = 'error') {
+      const box = document.getElementById('msg-box');
+      const icon = box.querySelector('i');
+      box.className = 'alert-box ' + (type === 'success' ? 'alert-success' : 'alert-error');
+      icon.className = type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-exclamation';
+      document.getElementById('msg-text').textContent = text;
+      box.classList.remove('hidden');
+    }
+
+    function hideMsg() {
+      document.getElementById('msg-box').classList.add('hidden');
+    }
+
+    function startResendCooldown(seconds = 60) {
+      const btn = document.getElementById('btn-resend-otp');
+      const label = document.getElementById('resend-label');
+      btn.disabled = true;
+      let remaining = seconds;
+      label.textContent = `Resend Code (${remaining}s)`;
+      resendTimer = setInterval(() => {
+        remaining--;
+        label.textContent = remaining > 0 ? `Resend Code (${remaining}s)` : 'Resend Code';
+        if (remaining <= 0) {
+          clearInterval(resendTimer);
+          btn.disabled = false;
+        }
+      }, 1000);
+    }
+
+    async function sendOTP(identifier) {
+      const type = identifier.includes('@') ? 'email' : 'phone';
+      const btn = document.getElementById('btn-send-otp');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Sending...';
+      hideMsg();
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/verify/request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type, identifier })
+        });
+
+        const data = await res.json();
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Verification Code';
+
+        if (res.ok) {
+          storedIdentifier = identifier;
+          document.getElementById('step-2').classList.remove('hidden');
+          const notice = document.getElementById('otp-notice-msg');
+          notice.innerHTML = `<i class="fa-solid fa-envelope-open-text"></i> ${data.message || 'Verification code sent.'}`;
+          startResendCooldown(60);
+          showMsg('Code sent! Enter it below to sign in.', 'success');
+        } else {
+          showMsg(data.error || 'Failed to send OTP code. Please try again.');
+        }
+      } catch (e) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send Verification Code';
+        showMsg('Connection timeout. Please check your internet and try again.');
+      }
+    }
+
+    document.getElementById('btn-send-otp').addEventListener('click', async () => {
       const idVal = document.getElementById('login-identifier').value.trim();
-      const passVal = document.getElementById('login-password').value.trim();
+      if (!idVal || idVal.length < 5) {
+        showMsg('Please enter a valid phone number (+919876543210) or email address.');
+        return;
+      }
+      await sendOTP(idVal);
+    });
 
-      if (!idVal || !passVal) {
-        alert('Please enter both your phone/email and password.');
+    document.getElementById('btn-resend-otp').addEventListener('click', async () => {
+      const idVal = storedIdentifier || document.getElementById('login-identifier').value.trim();
+      if (idVal) await sendOTP(idVal);
+    });
+
+    document.getElementById('btn-verify-otp').addEventListener('click', async () => {
+      const identifier = storedIdentifier || document.getElementById('login-identifier').value.trim();
+      const code = document.getElementById('login-otp-code').value.trim();
+
+      if (!identifier) {
+        showMsg('Please enter your phone or email first.');
+        return;
+      }
+      if (!code || code.length !== 6) {
+        showMsg('Please enter the complete 6-digit OTP code.');
         return;
       }
 
+      const btn = document.getElementById('btn-verify-otp');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Verifying...';
+      hideMsg();
+
       try {
-        const res = await fetch(`${BACKEND_URL}/api/login/password`, {
+        const res = await fetch(`${BACKEND_URL}/api/verify/confirm`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ identifier: idVal, password: passVal })
+          body: JSON.stringify({
+            type: identifier.includes('@') ? 'email' : 'phone',
+            identifier,
+            code,
+            displayName: 'Member',
+            deviceinfo: navigator.userAgent
+          })
         });
 
         const data = await res.json();
@@ -191,15 +361,27 @@
           localStorage.setItem('mab_session_id', data.sessionId);
           localStorage.setItem('mab_user_hash', data.userHash);
           localStorage.setItem('mab_handle', data.handle || 'Cockroach Member');
-          
-          alert(`✅ Welcome back, ${data.handle || 'Cockroach Member'}!`);
-          window.location.href = 'index.html';
+          localStorage.setItem('mab_is_medical', 'false');
+          showMsg('Signed in successfully! Redirecting...', 'success');
+          setTimeout(() => { window.location.href = 'index.html'; }, 800);
         } else {
-          alert(data.error || 'Login failed. Please check your details.');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Verify &amp; Sign In';
+          showMsg(data.error || 'Verification failed. Please check the code and try again.');
         }
       } catch (e) {
-        alert('Server connection timeout. Please check your internet connection.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Verify &amp; Sign In';
+        showMsg('Connection timeout. Please check your internet connection.');
       }
+    });
+
+    // Allow Enter key on OTP input
+    document.getElementById('login-otp-code').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('btn-verify-otp').click();
+    });
+    document.getElementById('login-identifier').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('btn-send-otp').click();
     });
   </script>
 </body>

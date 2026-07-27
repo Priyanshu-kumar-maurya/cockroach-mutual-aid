@@ -125,7 +125,7 @@
             <span class="status-time">14:30</span>
             <div class="status-island"></div>
             <div class="status-indicators">
-              <span class="signal-strength">📶</span>
+              <span class="signal-strength"><i class="fa-solid fa-signal"></i></span>
               <span class="battery-level">92%</span>
             </div>
           </div>
@@ -137,13 +137,13 @@
               <span class="app-subtitle" id="mobile-app-subtitle">Connecting Gatherings</span>
             </div>
             <button class="mobile-corner-dm-btn" id="mobile-corner-dm-btn" title="Direct Messages">
-              💬 DM <span class="unread-badge hidden" id="mobile-dm-unread">●</span>
+              <i class="fa-solid fa-comments"></i> DM <span class="unread-badge hidden" id="mobile-dm-unread">●</span>
             </button>
           </div>
 
           <!-- DM Notification Toast Alert -->
           <div class="dm-toast-banner hidden" id="dm-toast-banner">
-            <span class="dm-toast-icon">📩</span>
+            <span class="dm-toast-icon"><i class="fa-solid fa-envelope"></i></span>
             <div class="dm-toast-content">
               <strong id="dm-toast-sender">Priyanshu Cockroach</strong>
               <span id="dm-toast-text">Sent you a private 1-on-1 message</span>
@@ -152,43 +152,43 @@
             <button class="dm-toast-close" id="dm-toast-close-btn">&times;</button>
           </div>
 
-          <!-- SCREEN 0: DEDICATED DIRECT PASSWORD LOGIN SCREEN -->
+          <!-- SCREEN 0: MEMBER SIGN IN (OTP-ONLY REDIRECT) -->
           <div class="mobile-screen active" id="screen-login">
             <div class="welcome-text">
-              <h3>Member Login</h3>
-              <p>Enter your registered phone/email and password to access the Mutual Aid Board.</p>
+              <h3>Member Sign In</h3>
+              <p>Cockroach Aid uses secure OTP verification — no passwords needed. Tap below to sign in or register.</p>
             </div>
 
-            <div class="verify-card" style="margin-top: 0.8rem;">
-              <div class="form-group">
-                <label style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; display: block; margin-bottom: 0.3rem;">PHONE OR EMAIL</label>
-                <input type="text" id="direct-login-identifier" placeholder="Phone or Email (e.g. +919876543210)">
+            <div class="verify-card" style="margin-top: 0.8rem; text-align: center;">
+              <div style="font-size: 2.5rem; color: #3b82f6; margin-bottom: 0.8rem;">
+                <i class="fa-solid fa-shield-halved"></i>
               </div>
-              <div class="form-group">
-                <label style="font-size: 0.75rem; color: #94a3b8; font-weight: 600; display: block; margin-bottom: 0.3rem;">PASSWORD</label>
-                <input type="password" id="direct-login-password" placeholder="Enter Your Password">
-              </div>
-              <button class="btn btn-primary btn-block" id="btn-direct-login" style="margin-top: 0.6rem;">Sign In</button>
+              <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 1.2rem;">
+                Verify your identity with a one-time code sent to your phone or email. No password required.
+              </p>
+              <a href="login.html" class="btn btn-primary btn-block" style="display: block; text-decoration: none; text-align: center;">
+                <i class="fa-solid fa-paper-plane"></i> Sign In via OTP
+              </a>
             </div>
 
             <div style="text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px dashed var(--border-color);">
-              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.4rem;">First time user or forgot password?</p>
-              <button class="btn btn-outline-secondary btn-sm" id="btn-goto-register">Verify & Register via SMS OTP →</button>
+              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.4rem;">First time here?</p>
+              <button class="btn btn-outline-secondary btn-sm" id="btn-goto-register">Register via SMS OTP <i class="fa-solid fa-arrow-right"></i></button>
             </div>
           </div>
 
           <!-- SCREEN 1: OTP REGISTRATION SCREEN -->
           <div class="mobile-screen hidden" id="screen-verify">
             <div class="screen-back-header">
-              <button class="back-btn" id="btn-back-register-to-login">← Login</button>
+              <button class="back-btn" id="btn-back-register-to-login"><i class="fa-solid fa-arrow-left"></i> Login</button>
               <h3>SMS / Email Verification</h3>
             </div>
             
             <div class="verify-options" style="margin-top: 0.5rem;">
               <!-- OTP Method -->
               <div class="verify-card active" id="method-otp">
-                <h4>Verify Identity & Set Password</h4>
-                <p>Verify via SMS OTP. Set a password for future instant logins.</p>
+                <h4>Verify Identity via OTP</h4>
+                <p>Verify via SMS or Email OTP. No password required — your phone/email is your key.</p>
                 <div class="form-group">
                   <label style="font-size: 0.75rem; color: var(--color-primary); font-weight: 600; display: block; margin-bottom: 0.3rem;">YOUR NAME / HANDLE (AUTO-APPENDS COCKROACH)</label>
                   <input type="text" id="verify-display-name" placeholder="Enter Your Name (e.g. Priyanshu)">
@@ -197,15 +197,11 @@
                   <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">PHONE OR EMAIL</label>
                   <input type="text" id="verify-identifier" placeholder="Phone or Email (e.g. +919876543210)">
                 </div>
-                <div class="form-group">
-                  <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">CREATE ACCOUNT PASSWORD</label>
-                  <input type="password" id="verify-create-password" placeholder="Create Password (min 4 chars)">
-                </div>
                 <button class="btn btn-primary btn-block" id="btn-request-otp">Send Verification Code</button>
                 
                 <div class="otp-input-area hidden" id="otp-input-area">
                   <div class="otp-status-notice" id="otp-status-notice">
-                    📩 <span>Verification code sent via SMS relay gateway. (Expires in 5 mins)</span>
+                    <i class="fa-solid fa-envelope-open-text"></i> <span>Verification code sent via SMS relay gateway. (Expires in 5 mins)</span>
                   </div>
                   <div class="form-group" style="margin-top: 0.5rem;">
                     <input type="text" id="verify-code" placeholder="Enter 6-Digit OTP Code" maxlength="6">
@@ -228,7 +224,7 @@
             </div>
             
             <div class="screen-footer">
-              <p>🔒 Data E2EE Encrypted &middot; Hashed Storage</p>
+              <p><i class="fa-solid fa-lock"></i> Data E2EE Encrypted &middot; Hashed Storage</p>
             </div>
           </div>
 
@@ -245,7 +241,7 @@
             
             <!-- Queue Banner for Offline sync -->
             <div class="offline-queue-banner hidden" id="offline-queue-banner">
-              ⚠️ <span id="queue-banner-text">0 posts queued locally.</span>
+              <i class="fa-solid fa-triangle-exclamation"></i> <span id="queue-banner-text">0 posts queued locally.</span>
             </div>
 
             <!-- List of Needs -->
@@ -261,16 +257,16 @@
             
             <!-- Bottom tab navigation -->
             <div class="mobile-bottom-nav">
-              <button class="nav-item active" id="nav-board-feed">📋 Board</button>
-              <button class="nav-item" id="nav-public-chat-btn">💬 Chat <span class="unread-badge hidden" id="dm-unread-badge">●</span></button>
-              <button class="nav-item" id="nav-medical-verify">🩺 Medical</button>
+              <button class="nav-item active" id="nav-board-feed"><i class="fa-solid fa-list-check"></i> Board</button>
+              <button class="nav-item" id="nav-public-chat-btn"><i class="fa-solid fa-comments"></i> Chat <span class="unread-badge hidden" id="dm-unread-badge">●</span></button>
+              <button class="nav-item" id="nav-medical-verify"><i class="fa-solid fa-stethoscope"></i> Medical</button>
             </div>
           </div>
 
           <!-- SCREEN 3: POST A NEED SCREEN -->
           <div class="mobile-screen" id="screen-post-need">
             <div class="screen-back-header">
-              <button class="back-btn" id="btn-back-to-feed">← Feed</button>
+              <button class="back-btn" id="btn-back-to-feed"><i class="fa-solid fa-arrow-left"></i> Feed</button>
               <h3>Post a Need</h3>
             </div>
             
@@ -312,7 +308,7 @@
               <div class="form-group">
                 <label>Exact Pin Location (Hidden until accepted)</label>
                 <div class="gps-picker-widget">
-                  <span id="gps-coords-label">📍 Pin not set (default current location)</span>
+                  <span id="gps-coords-label"><i class="fa-solid fa-location-dot"></i> Pin not set (default current location)</span>
                   <button type="button" class="btn btn-sm btn-outline-primary" id="btn-open-gps-picker">Tap to select on map</button>
                 </div>
                 <!-- Interactive GPS Map Picker Container -->
@@ -324,7 +320,7 @@
                 <label>Attach Photo (Optional)</label>
                 <div class="photo-uploader-box">
                   <input type="file" id="photo-before-input" accept="image/*" class="hidden">
-                  <button type="button" class="btn btn-secondary btn-block" id="btn-select-photo">📸 Choose Photo</button>
+                  <button type="button" class="btn btn-secondary btn-block" id="btn-select-photo"><i class="fa-solid fa-camera"></i> Choose Photo</button>
                   <span class="file-name-label" id="photo-file-name">No photo attached</span>
                 </div>
                 
@@ -347,7 +343,7 @@
           <!-- SCREEN 4: NEED DETAILS & ACTION (NAVIGATION/PROOF) -->
           <div class="mobile-screen" id="screen-need-detail">
             <div class="screen-back-header">
-              <button class="back-btn" id="btn-back-detail-to-feed">← Feed</button>
+              <button class="back-btn" id="btn-back-detail-to-feed"><i class="fa-solid fa-arrow-left"></i> Feed</button>
               <h3 id="detail-category-title">Need Details</h3>
             </div>
             
@@ -356,15 +352,15 @@
               
               <!-- Emergency Bypass Banner -->
               <div class="emergency-bypass-banner hidden" id="emergency-bypass-banner">
-                <p>🚑 <strong>Genuine Medical Emergency?</strong></p>
+                <p><i class="fa-solid fa-truck-medical"></i> <strong>Genuine Medical Emergency?</strong></p>
                 <p>Call the ambulance or emergency services first before waiting for helpers.</p>
-                <a href="tel:102" class="btn btn-danger btn-block" id="btn-ambulance-call">📞 Call Ambulance (102)</a>
+                <a href="tel:102" class="btn btn-danger btn-block" id="btn-ambulance-call"><i class="fa-solid fa-phone"></i> Call Ambulance (102)</a>
               </div>
 
               <div class="detail-info-block">
                 <p class="detail-description" id="detail-description">Description of the need request...</p>
                 <div class="detail-meta">
-                  <span>📍 Zone: <strong id="detail-zone">Gate 3</strong></span>
+                  <span><i class="fa-solid fa-location-dot"></i> Zone: <strong id="detail-zone">Gate 3</strong></span>
                   <span id="detail-timestamp">Posted: 5m ago</span>
                 </div>
                 <div class="detail-photo-before" id="detail-photo-before-wrapper">
@@ -376,20 +372,20 @@
               <div class="detail-action-block">
                 <!-- If OPEN: Show accept button -->
                 <div class="action-state-open" id="action-state-open">
-                  <button class="btn btn-primary btn-block" id="btn-accept-need">🙋 Accept & Assist</button>
+                  <button class="btn btn-primary btn-block" id="btn-accept-need"><i class="fa-solid fa-hand-holding-heart"></i> Accept & Assist</button>
                 </div>
 
                 <!-- If ACCEPTED: Show navigation maps, contact masking & resolve proof -->
                 <div class="action-state-accepted hidden" id="action-state-accepted">
                   <div class="helper-status-header">
-                    <h4>🔒 Accepted Task (In Progress)</h4>
+                    <h4><i class="fa-solid fa-lock"></i> Accepted Task (In Progress)</h4>
                     <p>Precise location unlocked only for you.</p>
                   </div>
 
                   <!-- Mini Map Leaflet -->
                   <div class="mini-map-container">
                     <div id="navigation-map"></div>
-                    <button class="btn btn-outline-primary btn-sm btn-navigate" id="btn-external-navigation">🧭 Open in External Maps (Navigate)</button>
+                    <button class="btn btn-outline-primary btn-sm btn-navigate" id="btn-external-navigation"><i class="fa-solid fa-map"></i> Open in External Maps (Navigate)</button>
                   </div>
 
                   <!-- Masked communication -->
@@ -397,8 +393,8 @@
                     <h5>Masked Contacts (Urgent Cases)</h5>
                     <p>Contact information is routed securely. Identity remains hidden.</p>
                     <div class="comms-buttons">
-                      <a href="#" class="btn btn-outline-success" id="btn-masked-call">📞 Masked Call</a>
-                      <a href="#" class="btn btn-outline-success" id="btn-masked-whatsapp">💬 Masked WhatsApp</a>
+                      <a href="#" class="btn btn-outline-success" id="btn-masked-call"><i class="fa-solid fa-phone-flip"></i> Masked Call</a>
+                      <a href="#" class="btn btn-outline-success" id="btn-masked-whatsapp"><i class="fa-brands fa-whatsapp"></i> Masked WhatsApp</a>
                     </div>
                   </div>
 
@@ -407,7 +403,7 @@
                     <h5>Resolve Need (Mandatory Proof)</h5>
                     <div class="form-group">
                       <input type="file" id="photo-after-input" accept="image/*" class="hidden">
-                      <button class="btn btn-secondary btn-block" id="btn-select-resolve-photo">📸 Upload After-Photo Proof</button>
+                      <button class="btn btn-secondary btn-block" id="btn-select-resolve-photo"><i class="fa-solid fa-camera"></i> Upload After-Photo Proof</button>
                       <span id="photo-after-file-name" class="file-name-label">No photo attached</span>
                     </div>
 
@@ -429,7 +425,7 @@
                 <!-- If RESOLVED: Show resolution proof to everyone -->
                 <div class="action-state-resolved hidden" id="action-state-resolved">
                   <div class="resolution-banner">
-                    <h4>✅ Need Resolved</h4>
+                    <h4><i class="fa-solid fa-circle-check"></i> Need Resolved</h4>
                     <p class="resolved-timestamp" id="detail-resolved-time">Resolved at: 12:40</p>
                   </div>
                   <h5>Verified Photo Proof</h5>
@@ -463,7 +459,7 @@
           <!-- SCREEN 5: REGISTER AS MEDICAL VOLUNTEER -->
           <div class="mobile-screen" id="screen-medical-verify">
             <div class="screen-back-header">
-              <button class="back-btn" id="btn-back-medical-to-feed">← Board</button>
+              <button class="back-btn" id="btn-back-medical-to-feed"><i class="fa-solid fa-arrow-left"></i> Board</button>
               <h3>Medical Helper Verification</h3>
             </div>
             
@@ -565,7 +561,7 @@
     <div class="modal-overlay hidden" id="user-profile-modal">
       <div class="profile-modal-card">
         <div class="profile-header">
-          <span class="profile-avatar">🪳</span>
+          <span class="profile-avatar"><i class="fa-solid fa-circle-user"></i></span>
           <h3 id="profile-display-name">Priyanshu Cockroach</h3>
           <span class="profile-hash-badge" id="profile-user-hash">usr_...</span>
         </div>
@@ -582,7 +578,7 @@
         </div>
 
         <div class="profile-actions">
-          <button class="btn btn-primary btn-block" id="btn-start-dm-profile">💬 Send Direct Message</button>
+          <button class="btn btn-primary btn-block" id="btn-start-dm-profile"><i class="fa-solid fa-comments"></i> Send Direct Message</button>
           <button class="btn btn-secondary btn-block" id="btn-close-profile-modal">Close</button>
         </div>
       </div>
@@ -663,12 +659,12 @@
         <div class="audit-dashboard-cards">
           <div class="audit-card">
             <h4>Data Retention Rule</h4>
-            <p class="audit-rule">⏰ <strong>30-Day Auto-Purge</strong>: Active</p>
+            <p class="audit-rule"><i class="fa-solid fa-clock"></i> <strong>30-Day Auto-Purge</strong>: Active</p>
             <p class="audit-desc">Phone numbers, emails, and verification traces are purged from database records automatically. Only anonymous user hashes remain.</p>
           </div>
           <div class="audit-card">
             <h4>Weighted Trust Model</h4>
-            <p class="audit-rule">🛡️ <strong>Anti-Gaming</strong>: Active</p>
+            <p class="audit-rule"><i class="fa-solid fa-shield-halved"></i> <strong>Anti-Gaming</strong>: Active</p>
             <p class="audit-desc">Reports sharing IP subnets scale down in weight. 5+ distinct user reports are required to auto-hide a post. Permanent bans require human reviewer check.</p>
           </div>
         </div>
@@ -691,7 +687,7 @@
   <div class="modal-overlay hidden" id="security-inspector-modal">
     <div class="profile-modal-card security-modal-card">
       <div class="profile-header">
-        <span class="profile-avatar">🛡️</span>
+        <span class="profile-avatar"><i class="fa-solid fa-shield-halved"></i></span>
         <h3>Security & E2EE Verification</h3>
         <span class="profile-hash-badge">TLS 1.3 &middot; AES-GCM-256</span>
       </div>

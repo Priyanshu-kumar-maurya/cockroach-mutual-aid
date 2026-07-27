@@ -346,7 +346,7 @@ async function requestOTP() {
       document.getElementById('otp-input-area').classList.remove('hidden');
       const notice = document.getElementById('otp-status-notice');
       if (notice) {
-        notice.innerHTML = `📩 <span>${data.message}</span>`;
+        notice.innerHTML = `<i class="fa-solid fa-envelope-open-text"></i> <span>${data.message}</span>`;
       }
       logToConsole(`OTP requested for ${idVal}. Dispatched via gateway.`, 'info');
     } else {
@@ -415,49 +415,15 @@ async function confirmOTP() {
       logToConsole(`OTP verified successfully! Welcome ${uniqueHandle}. User Hash: ${state.userHash}`, 'success');
     } else {
       const err = await res.json();
-      alert(`⚠️ Verification Failed:\n\n${err.error}`);
+      alert(`Verification Failed: ${err.error}`);
     }
   } catch (e) {
     alert('Network error during OTP confirmation. Please check server connectivity and try again.');
   }
 }
 
-async function loginWithPassword() {
-  const idVal = document.getElementById('login-password-identifier')?.value.trim();
-  const passVal = document.getElementById('login-password-input')?.value.trim();
-
-  if (!idVal || !passVal) {
-    alert('Please enter both your registered phone/email and account password.');
-    return;
-  }
-
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/login/password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifier: idVal, password: passVal })
-    });
-
-    const data = await res.json();
-    if (res.ok) {
-      state.sessionId = data.sessionId;
-      state.userHash = data.userHash;
-      
-      const fullHandle = data.handle || 'Cockroach User';
-      localStorage.setItem('mab_session_id', data.sessionId);
-      localStorage.setItem('mab_user_hash', data.userHash);
-      localStorage.setItem('mab_handle', fullHandle);
-
-      updateSessionUI(fullHandle);
-      showScreen('screen-feed');
-      alert(`✅ Welcome back, ${fullHandle}! Logged in via Password.`);
-    } else {
-      alert(data.error || 'Password login failed.');
-    }
-  } catch (e) {
-    alert('Server connection timeout. Please check your internet connection.');
-  }
-}
+// loginWithPassword() removed — system is OTP-only.
+// Use requestOTP() + confirmOTP() flow via login.html page.
 
 async function confirmProxy() {
   const proxyCode = document.getElementById('verify-proxy-name').value.trim();
@@ -485,16 +451,8 @@ async function confirmProxy() {
       alert('Proxy validation failed.');
     }
   } catch (e) {
-    // Mock Coordinator proxy
-    state.sessionId = 'mock_sess_proxy_' + Math.random().toString(36).substring(2, 10);
-    state.userHash = 'usr_mock_proxy_' + Math.random().toString(36).substring(2, 8);
-    state.isMedicalVerified = false;
-
-    saveSession();
-    updateSessionBar();
-    showScreen('screen-feed');
-    refreshBoard();
-    logToConsole(`[Offline Mock Auth] Coordinator Proxy approved. Hash: ${state.userHash}`, 'success');
+    alert('Server connection timeout. Cannot validate coordinator proxy without network.');
+    logToConsole('Coordinator proxy failed: server unreachable.', 'error');
   }
 }
 
@@ -530,42 +488,8 @@ function updateSessionBar() {
   }
 }
 
-async function directPasswordLogin() {
-  const idVal = document.getElementById('direct-login-identifier')?.value.trim();
-  const passVal = document.getElementById('direct-login-password')?.value.trim();
-
-  if (!idVal || !passVal) {
-    alert('Please enter both your phone/email and password.');
-    return;
-  }
-
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/login/password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifier: idVal, password: passVal })
-    });
-
-    const data = await res.json();
-    if (res.ok) {
-      state.sessionId = data.sessionId;
-      state.userHash = data.userHash;
-      
-      const fullHandle = data.handle || (data.displayName + '-Cockroach-#A1K2');
-      localStorage.setItem('mab_session_id', data.sessionId);
-      localStorage.setItem('mab_user_hash', data.userHash);
-      localStorage.setItem('mab_handle', fullHandle);
-
-      updateSessionUI(fullHandle);
-      showScreen('screen-feed');
-      alert(`✅ Welcome back, ${fullHandle}!`);
-    } else {
-      alert(data.error || 'Login failed. Please check your details or register via SMS OTP.');
-    }
-  } catch (e) {
-    alert('Server connection timeout. Please check your internet connection.');
-  }
-}
+// directPasswordLogin() removed — system is OTP-only.
+// Redirect to login.html which uses pure OTP sign-in flow.
 
 async function logout() {
   try {
@@ -588,10 +512,10 @@ async function killRemoteSessions() {
       headers: { 'Authorization': state.sessionId }
     });
     const data = await res.json();
-    alert(data.message);
-    logToConsole('Remote session kill command dispatched to SQLite sessions manager.', 'warn');
+    alert(data.message || 'All other sessions terminated successfully.');
+    logToConsole('Remote session kill command dispatched to sessions manager.', 'warn');
   } catch (e) {
-    alert('Remote kill successfully simulated. All other active local database handles closed.');
+    alert('Connection timeout. Could not reach server to kill remote sessions.');
   }
 }
 
@@ -615,13 +539,14 @@ function initGPSPickerMap() {
     const marker = event.target;
     const position = marker.getLatLng();
     state.tempSelectedCoords = { lat: position.lat, lng: position.lng };
-    document.getElementById('gps-coords-label').textContent = `📍 Lat: ${position.lat.toFixed(4)}, Lng: ${position.lng.toFixed(4)}`;
+    document.getElementById('gps-coords-label').textContent = `Lat: ${position.lat.toFixed(4)}, Lng: ${position.lng.toFixed(4)}`;
+    document.getElementById('gps-coords-label').prepend((() => { const i = document.createElement('i'); i.className = 'fa-solid fa-location-dot'; i.style.marginRight = '4px'; return i; })());
   });
 
   gpsPickerMap.on('click', function(e) {
     gpsPickerMarker.setLatLng(e.latlng);
     state.tempSelectedCoords = { lat: e.latlng.lat, lng: e.latlng.lng };
-    document.getElementById('gps-coords-label').textContent = `📍 Lat: ${e.latlng.lat.toFixed(4)}, Lng: ${e.latlng.lng.toFixed(4)}`;
+    document.getElementById('gps-coords-label').textContent = `Lat: ${e.latlng.lat.toFixed(4)}, Lng: ${e.latlng.lng.toFixed(4)}`;
   });
 }
 
@@ -984,7 +909,7 @@ function renderBoard() {
       </div>
       <p class="card-body-text">${need.description}</p>
       <div class="card-footer">
-        <span>📍 ${need.zone} (${distance})</span>
+        <span><i class="fa-solid fa-location-dot"></i> ${need.zone} (${distance})</span>
         <span class="card-status ${need.status}">${need.status}</span>
       </div>
     `;
@@ -1496,7 +1421,7 @@ mockDatabase.chat = [
     chat_id: 'chat_mock_1',
     user_hash: 'usr_volunteer_1',
     display_name: 'Priyanshu Cockroach',
-    avatar_icon: '🪳',
+    avatar_icon: 'fa-circle-user',
     message: 'Welcome everyone! Stay safe near the relief camps.',
     linked_need_id: null,
     created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString()
@@ -1505,7 +1430,7 @@ mockDatabase.chat = [
     chat_id: 'chat_mock_2',
     user_hash: 'usr_volunteer_2',
     display_name: 'Coordinator Cockroach',
-    avatar_icon: '🪳',
+    avatar_icon: 'fa-circle-user',
     message: 'Water packages available at Tent C. Contact if needed.',
     linked_need_id: 'mock_need_2',
     created_at: new Date(Date.now() - 15 * 60 * 1000).toISOString()
@@ -1562,7 +1487,7 @@ function renderPrivateDMsList() {
 
   const dms = mockDatabase.dms.filter(d => d.sender_hash === state.userHash || d.receiver_hash === state.userHash);
   if (!dms || dms.length === 0) {
-    container.innerHTML = '<div class="empty-state"><p>No active 1-on-1 private conversations yet. Tap any user\'s 🪳 avatar or name on the board to send a private DM!</p></div>';
+    container.innerHTML = '<div class="empty-state"><p>No active 1-on-1 private conversations yet. Tap any user\'s profile icon on the board to send a private DM!</p></div>';
     return;
   }
 
@@ -1753,7 +1678,7 @@ async function sendChatMessage() {
       chat_id: 'chat_' + Math.random().toString(36).substring(2, 9),
       user_hash: state.userHash,
       display_name: displayName,
-      avatar_icon: '🪳',
+      avatar_icon: 'fa-circle-user',
       message: messageText,
       linked_need_id: null,
       created_at: new Date().toISOString()
@@ -1807,9 +1732,9 @@ function renderProfileNeeds(needs) {
     needsListEl.innerHTML = '<p class="empty-text">No active requests posted.</p>';
     return;
   }
-  needsListEl.innerHTML = needs.map(n => `
+    needsListEl.innerHTML = needs.map(n => `
     <div class="profile-need-item" onclick="closeUserProfileModal(); viewLinkedNeed('${n.need_id}')">
-      📍 [${n.urgency}] ${n.category}: ${escapeHTML(n.description.substring(0, 45))}...
+      <i class="fa-solid fa-location-dot"></i> [${n.urgency}] ${n.category}: ${escapeHTML(n.description.substring(0, 45))}...
     </div>
   `).join('');
 }
@@ -1829,7 +1754,7 @@ function openDirectMessageScreen(targetHash, targetName) {
   currentDmTargetHash = targetHash;
   currentDmTargetName = targetName;
 
-  document.getElementById('dm-recipient-title').innerText = `💬 1-on-1 with ${targetName}`;
+  document.getElementById('dm-recipient-title').innerHTML = `<i class="fa-solid fa-comments"></i> 1-on-1 with ${targetName}`;
   showScreen('screen-dm');
   fetchDirectMessages();
 }
@@ -1890,7 +1815,7 @@ function renderDirectMessages(dms) {
     const formattedTime = new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     return `
       <div class="chat-bubble ${isOwn ? 'own-message' : ''}">
-        <div class="chat-avatar-badge">🪳</div>
+        <div class="chat-avatar-badge"><i class="fa-solid fa-circle-user"></i></div>
         <div class="chat-bubble-content">
           <div class="chat-author-row">
             <span class="chat-author-name">${d.sender_name || 'Cockroach'}</span>
